@@ -86,7 +86,7 @@ class Transport:
         return result
 
 
-def stock_inputs(path):
+def stock_inputs(path, routines=ROUTINES):
     with path.open("rb") as stream:
         elf = ELFFile(stream)
         section = elf.get_section_by_name(".kernel")
@@ -97,18 +97,19 @@ def stock_inputs(path):
     if symbols["ads1296_sdma_open"] != 0x8041E868:
         raise ValueError("unexpected kernel symbol layout")
     addresses = sorted(set(symbols.values()))
-    ranges = [(symbols[name], next(a for a in addresses if a > symbols[name])) for name in ROUTINES]
+    ranges = [(symbols[name], next(a for a in addresses if a > symbols[name])) for name in routines]
     return raw, base, symbols, ranges
 
 
-def run_stock(inputs, model):
+def run_stock(inputs, model, entry="ads1296_sdma_open", argument=0, extension=None):
     raw, base, symbols, ranges = inputs
     uc = Uc(UC_ARCH_ARM, UC_MODE_ARM)
     uc.ctl_set_cpu_model(UC_CPU_ARM_CORTEX_A7)
     pages = {RETURN}
     for start, end in ranges:
         pages.update(range(start & ~4095, (end + 4095) & ~4095, 4096))
-    pages.update(symbols[name] & ~4095 for name in STUBS)
+    stub_names = STUBS + (tuple(extension.stubs) if extension else ())
+    pages.update(symbols[name] & ~4095 for name in stub_names)
     for page in pages:
         uc.mem_map(page, 4096, UC_PROT_READ | UC_PROT_EXEC)
     for start, end in ranges:
@@ -116,7 +117,7 @@ def run_stock(inputs, model):
     for page in (SPI, CLOCK & ~4095, EVENT & ~4095, 0x808A4000):
         uc.mem_map(page, 4096, UC_PROT_READ | UC_PROT_WRITE)
     uc.mem_map(0x10000000, 0x10000, UC_PROT_READ | UC_PROT_WRITE)
-    stubs = {symbols[name]: name for name in STUBS}
+    stubs = {symbols[name]: name for name in stub_names}
 
     def code_hook(cpu, address, size, _):
         name = stubs.get(address)
@@ -140,6 +141,8 @@ def run_stock(inputs, model):
             model.io(SLEEP_MS, a, 0)
         elif name == "usleep_range":
             model.io(SLEEP_US, a, b)
+        elif extension and name in extension.stubs:
+            result = extension.stubs[name](cpu, a, b, cpu.reg_read(UC_ARM_REG_R2))
         cpu.reg_write(UC_ARM_REG_R0, result)
         cpu.reg_write(UC_ARM_REG_PC, cpu.reg_read(UC_ARM_REG_LR))
 
@@ -160,7 +163,12 @@ def run_stock(inputs, model):
         uc.hook_add(UC_HOOK_MEM_WRITE, write_hook, begin=start, end=end)
     uc.reg_write(UC_ARM_REG_SP, 0x1000FFF0)
     uc.reg_write(UC_ARM_REG_LR, RETURN)
-    uc.emu_start(symbols["ads1296_sdma_open"], RETURN, count=20000, timeout=500000)
+    uc.reg_write(UC_ARM_REG_R1, argument)
+    if extension:
+        extension.prepare(uc, symbols)
+    uc.emu_start(symbols[entry], RETURN, count=20000, timeout=500000)
+    if extension:
+        extension.finish(uc)
     if uc.reg_read(UC_ARM_REG_PC) != RETURN:
         return None
     return ctypes.c_int32(uc.reg_read(UC_ARM_REG_R0)).value
@@ -192,7 +200,7 @@ def run_reconstructed(library, model):
     return result
 
 
-def run_arm_reconstructed(binary, model):
+def run_arm_reconstructed(binary, model, entry=None, extension=None):
     elf = ELFFile(io.BytesIO(binary))
     cpu = Uc(UC_ARCH_ARM, UC_MODE_ARM)
     cpu.ctl_set_cpu_model(UC_CPU_ARM_CORTEX_A7)
@@ -221,9 +229,17 @@ def run_arm_reconstructed(binary, model):
     cpu.reg_write(UC_ARM_REG_SP, data + 0x1FFF0)
     cpu.reg_write(UC_ARM_REG_R0, data)
     cpu.reg_write(UC_ARM_REG_LR, stop)
-    cpu.emu_start(elf["e_entry"], stop, count=20000, timeout=500000)
+    if extension:
+        extension.prepare_arm(cpu, data)
+    start = elf["e_entry"]
+    if entry:
+        symbols = {s.name: s["st_value"] for s in elf.get_section_by_name(".symtab").iter_symbols()}
+        start = symbols[entry]
+    cpu.emu_start(start, stop, count=20000, timeout=500000)
     if cpu.reg_read(UC_ARM_REG_PC) != stop:
         raise ValueError("reconstructed ARM initializer did not return")
+    if extension:
+        extension.finish_arm(cpu, data)
     return ctypes.c_int32(cpu.reg_read(UC_ARM_REG_R0)).value
 
 

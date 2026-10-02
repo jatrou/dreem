@@ -163,6 +163,9 @@ claiming live acquisition, calibration, or a replacement for Nerves.
 The subsequently recovered [ADC initialization](adc-findings.md) configures
 a nominal 4 V reference and gain 1. Those settings explain the conversion as
 nominal microvolts at the ADC input; physical calibration remains unverified.
+That component also reconstructs start, stop, and release, with 72 modeled
+cases matching the stock control routines and explicit bounded-timeout cleanup.
+The remaining acquisition-driver integration is listed in the same document.
 
 ## Existing sensor interfaces
 

@@ -29,6 +29,11 @@ with bounded polling added for a stalled peripheral. See
 [ADC reconstruction](adc-findings.md) for the register settings, comparison
 command, and remaining driver-integration work.
 
+Start, stop, and release are reconstructed in the same component. Host and
+ARM builds match 72 modeled stock-kernel cases, with bounded shutdown in ten
+additional stalled-peripheral/queue cases. This still needs the Linux driver,
+SDMA channel setup, sample delivery, and on-device qualification.
+
 As of October 2, 2026, these results are verified offline. The headset was not
 reachable for a new runtime test, and neither checked workstation had the
 recovery phone connected. Existing operational records describe working root

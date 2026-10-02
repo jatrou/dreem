@@ -1,20 +1,22 @@
-# ADC initialization reconstruction
+# ADC initialization and acquisition control
 
 Verified offline on October 2, 2026 against the stock kernel identified in
 [source findings](source-findings.md). This reconstructs the initialization
-used by the SDMA acquisition path. It is not a complete acquisition driver.
+used by the SDMA acquisition path, plus its start, stop, and release sequences.
+It is not a complete acquisition driver.
 
 ## Source and transport boundary
 
 `ads129x_init.c` contains independently written C for the power, SPI-command,
-identification, and register-setup sequence. It compiles for the host and
+identification, register setup, and acquisition-control sequences. It compiles for the host and
 Cortex-A7. A callback supplies ordered MMIO, GPIO, and delay operations; the
-verification tool supplies synthetic operations only. There is no hardware
-backend, device-node access, installation step, or recording start command.
+verification tools supply synthetic operations only. There is no hardware
+backend, device-node access, or installation step. The start function can
+operate only through a caller-supplied transport; these checks use emulation.
 
 Integration into a replacement kernel still needs Linux MMIO barriers and
-resource ownership, the ADC character-device interface, SDMA buffer/event
-setup, acquisition start/stop, suspend/resume, and hardware testing. It must
+resource ownership, the ADC character-device interface, SDMA channel/script
+setup, sample delivery, suspend/resume, and hardware testing. It must
 not run alongside the existing ADC owner. An upstream kernel with this one
 component would still be incomplete.
 
@@ -90,3 +92,52 @@ an operation count, not a hardware-qualified wall-clock timeout.
 This verifies register operations and control flow under the modeled responses.
 It does not verify physical timing, bus ordering, power behavior, recording
 fidelity, or every possible peripheral/error response.
+
+## Start, stop, and release
+
+The same C component now exposes `ads129x_sdma_start`, `ads129x_sdma_stop`,
+and `ads129x_sdma_release`. Start needs initialized hardware, a configured
+SDMA channel, an exclusively owned 1,024-byte ring, and queue callbacks. The
+callbacks read the current producer slot and consume pending notifications.
+They do not configure the SDMA channel or install its instruction program.
+
+Start clears the error counter, issues ADC commands `0x08` and `0x10`, fills
+the ring with `0x42`, places the reader one slot behind the current producer,
+and drains pending notifications. It then configures ECSPI control
+`0x077170f9`, configuration `0x0f`, and DMA control `0x00830000`, writes four
+zero transmit words, and finally enables the SDMA request with value `2` at
+`0x020ec20c`. Stop restores command mode and sends `0x11`, then `0x0a`, with
+the observed chip-select changes and delays. Release also powers off the ADC.
+
+Reproduce the separate control comparison:
+
+```sh
+/private/work/venv/bin/python development/verify_adc_control.py \
+  /private/work/inspection/kernel.elf
+```
+
+This maps only the selected original functions, substitutes bounded synthetic
+kernel helpers, and supplies synthetic global/ring memory. It compares return
+values, ordered MMIO/GPIO/delay/queue operations, and final ring/state bytes
+against host and Cortex-A7 builds of the reconstruction. **72 cases match**:
+
+- All 64 producer slots, with varying pending-notification counts.
+- Start with 63 queued notifications and an already enabled SPI controller.
+- Start with stale receive data.
+- Stop and release with disabled/enabled controllers and stale receive data.
+
+Combined control trace SHA-256:
+`aa493a2047e76fe60873ec3e034e0f3bec15abf30ea3c8e56b1172e9ffc3ec62`.
+
+Ten additional cases cover absent transmit-ready status, a controller that
+never finishes, an undrainable receive FIFO, and a notification queue that
+never empties. The original routines exhaust the emulator instruction limit;
+both reconstructed builds return `-110`, disable requests, turn ADC power off,
+and deselect it. An out-of-range producer slot is rejected with `-22` and the
+same shutdown. These are intentional improvements to the original behavior.
+After release or an error, callers must initialize again before acquisition.
+
+This comparison does not model concurrent interrupts, DMA writes during ring
+reset, cache coherency, actual semaphore scheduling, or physical timing. The
+callback transport must provide Linux ordering and exclusive resource ownership
+when a real driver is implemented. No reconstructed driver is installed.

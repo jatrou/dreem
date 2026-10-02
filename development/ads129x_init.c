@@ -8,6 +8,7 @@
 #define SPI_TX (SPI_BASE + 4)
 #define SPI_CONTROL (SPI_BASE + 8)
 #define SPI_CONFIG (SPI_BASE + 12)
+#define SPI_DMA (SPI_BASE + 20)
 #define SPI_STATUS (SPI_BASE + 24)
 #define SPI_CLOCK UINT32_C(0x020c406c)
 #define SDMA_EVENT UINT32_C(0x020ec20c)
@@ -18,6 +19,11 @@ static uint32_t io(const struct ads_transport *t, enum ads_io_operation op,
                    uint32_t a, uint32_t b)
 {
     return t->io(t->context, op, a, b);
+}
+
+static int valid_transport(const struct ads_transport *t)
+{
+    return t && t->io && t->poll_limit && t->poll_limit <= 1000000;
 }
 
 static uint32_t read32(const struct ads_transport *t, uint32_t address)
@@ -106,7 +112,7 @@ int ads129x_sdma_initialize(const struct ads_transport *t)
     };
     int result = -16;
     uint32_t last = 0;
-    if (!t || !t->io || !t->poll_limit || t->poll_limit > 1000000)
+    if (!valid_transport(t))
         return -22;
     write32(t, SPI_CLOCK, read32(t, SPI_CLOCK) | 3);
     if (command_mode(t)) {
@@ -154,4 +160,80 @@ cleanup:
     io(t, ADS_GPIO_SET, POWER_GPIO, 0);
     io(t, ADS_GPIO_SET, CS_GPIO, 1);
     return result;
+}
+
+static int power_off_error(const struct ads_transport *t, int result)
+{
+    write32(t, SDMA_EVENT, 0);
+    io(t, ADS_GPIO_SET, POWER_GPIO, 0);
+    io(t, ADS_GPIO_SET, CS_GPIO, 1);
+    return result;
+}
+
+int ads129x_sdma_start(const struct ads_transport *t, struct ads_sdma_state *state)
+{
+    if (!valid_transport(t) || !state || !state->ring)
+        return -22;
+    state->errors = 0;
+    if (command(t, 0x08) || command(t, 0x10))
+        return power_off_error(t, -110);
+    io(t, ADS_GPIO_SET, CS_GPIO, 0);
+    for (unsigned i = 0; i < ADS_SDMA_RING_BYTES; ++i)
+        state->ring[i] = 0x42;
+    uint32_t head = io(t, ADS_QUEUE_HEAD, 0, 0);
+    if (head >= ADS_SDMA_RING_BYTES / 16)
+        return power_off_error(t, -22);
+    state->read_offset = ((head + 63) & 63) * 16;
+    unsigned attempts;
+    for (attempts = 0; attempts < t->poll_limit; ++attempts)
+        if (io(t, ADS_QUEUE_TRYLOCK, 0, 0))
+            break;
+    if (attempts == t->poll_limit || flush(t))
+        return power_off_error(t, -110);
+    uint32_t control = read32(t, SPI_CONTROL);
+    if (!(control & 1))
+        write32(t, SPI_CONTROL, control | 1);
+    else if (wait_status(t, 0x80))
+        return power_off_error(t, -110);
+    write32(t, SPI_CONTROL, 0x077170f9);
+    write32(t, SPI_CONFIG, 0xf);
+    write32(t, SPI_DMA, 0x830000);
+    if (flush(t))
+        return power_off_error(t, -110);
+    for (unsigned i = 0; i < 4; ++i)
+        write32(t, SPI_TX, 0);
+    write32(t, SDMA_EVENT, 2);
+    return 0;
+}
+
+int ads129x_sdma_stop(const struct ads_transport *t)
+{
+    if (!valid_transport(t))
+        return -22;
+    if (command_mode(t))
+        return power_off_error(t, -110);
+    io(t, ADS_GPIO_SET, CS_GPIO, 1);
+    io(t, ADS_SLEEP_MS, 10, 0);
+    io(t, ADS_GPIO_SET, CS_GPIO, 0);
+    io(t, ADS_SLEEP_MS, 10, 0);
+    if (command(t, 0x11))
+        return power_off_error(t, -110);
+    io(t, ADS_SLEEP_MS, 10, 0);
+    if (command(t, 0x0a))
+        return power_off_error(t, -110);
+    io(t, ADS_SLEEP_MS, 100, 0);
+    io(t, ADS_GPIO_SET, CS_GPIO, 1);
+    return 0;
+}
+
+int ads129x_sdma_release(const struct ads_transport *t)
+{
+    if (!valid_transport(t))
+        return -22;
+    write32(t, SDMA_EVENT, 0);
+    if (command_mode(t) || command(t, 0x0a))
+        return power_off_error(t, -110);
+    io(t, ADS_GPIO_SET, POWER_GPIO, 0);
+    io(t, ADS_GPIO_SET, CS_GPIO, 1);
+    return 0;
 }
