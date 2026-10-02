@@ -1,10 +1,18 @@
-# Dreem 2 raw-data and root-recovery research
+# Dreem 2 recovery and feature development
+
+> **Feature-development work, October 2, 2026:** the [development toolkit](development/README.md)
+> provides reproducible firmware/source analysis and a tested independent ARM
+> EEG quality monitor. Kernel config and symbols are recovered; the full
+> vendor application source is still unavailable. Existing operational records
+> document later root recovery, while this branch's new tests are offline.
+> The recovery narrative below is a historical snapshot and its old access
+> limitations do not describe the later recovered installation.
 
 **Disclaimer:** All documentation was written by Codex GPT-5.6-Sol and AI was used extensively, though not exclusively, throughout this project.
 
 This repository documents an effort to recover filesystem access or a full-fidelity overnight recording from a Dreem 2 EEG headband. It brings together maintained recovery tools, hardware notes, protocol research, prepared i.MX6ULL payloads, evidence summaries, and observations from approaches that did not work under the conditions tested.
 
-> **Current result:** root/filesystem access has not been obtained, and a genuine overnight Dreem `.h5` recording has not been recovered. The BLE, companion-app, and backend paths tested so far returned compact `reporting_v2.data` payloads rather than identifiable raw EEG.
+> **Result at this historical snapshot:** root/filesystem access had not been obtained, and a genuine overnight Dreem `.h5` recording had not been recovered. The BLE, companion-app, and backend paths tested then returned compact `reporting_v2.data` payloads rather than identifiable raw EEG.
 
 These are bounded experimental results, not proof that every path has been discovered or exhausted. Different hardware revisions, firmware, account states, timing, tools, or interpretations may lead to different outcomes.
 

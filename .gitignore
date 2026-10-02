@@ -5,6 +5,7 @@
 /tmp/
 /secrets/
 /credentials/
+/development/build/
 
 # Environment files and local configuration
 .env
