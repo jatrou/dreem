@@ -127,12 +127,40 @@ The existing kernel exposes I2C userspace access. Many sensor additions can use
 that interface without a replacement kernel. ADC acquisition, existing sensor
 FIFOs, clock control, and the recording process remain shared resources.
 
+## Rebuild and compare the NXP baseline
+
+A full baseline `vmlinux` build succeeded using Bootlin's ARMv7 hard-float
+uClibc stable 2018.11 toolchain (GCC 7.3.0). This is close to the stock GCC 7.4.0,
+not the original compiler. The downloaded archive and checksum are published
+by [Bootlin](https://toolchains.bootlin.com/downloads/releases/toolchains/armv7-eabihf/tarballs/):
+`armv7-eabihf--uclibc--stable-2018.11-1.tar.bz2`, SHA-256
+`a0300cf5765436607e50d010abbe88a71b2447c40cd9ccd1a733a6e43608f081`.
+
+After extracting the toolchain into a private work directory:
+
+```sh
+sh development/build_kernel_baseline.sh /private/work/linux-imx \
+  /private/work/kernel-build /private/work/inspection/kernel.config \
+  /private/work/armv7-eabihf--uclibc--stable-2018.11-1/bin/arm-linux-
+/private/work/venv/bin/python development/recover_exports.py \
+  /private/work/kernel-build/vmlinux /private/work/baseline-exports
+python3 development/compare_exports.py /private/work/exports/Module.symvers \
+  /private/work/baseline-exports/Module.symvers
+```
+
+Of 7,041 stock exports, 7,036 match both CRC and export class. Two shared
+symbols differ and three are stock-only; details are in the source findings.
+This is strong interface evidence, not proof of identical implementations.
+The baseline drops Dreem-only config options and has no Femto board DTS. It
+must not replace the installed kernel. No baseline image was flashed.
+
 ## Tests
 
 ```sh
 sh development/build.sh
 /private/work/venv/bin/python -m unittest \
-  tests.test_firmware_development tests.test_kernel_exports tests.test_eeg_quality -v
+  tests.test_firmware_development tests.test_kernel_exports \
+  tests.test_compare_exports tests.test_eeg_quality -v
 ```
 
 The suite covers malformed/truncated input, archive link and duplicate rejection,

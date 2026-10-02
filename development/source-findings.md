@@ -57,6 +57,28 @@ tables:
 `module_layout` CRC is `0xae63ff3f`; `printk` is `0x27e1a049`. These are source
 matching evidence, not a license to substitute checksums for ABI validation.
 
+### Rebuilt upstream comparison
+
+The NXP baseline built successfully with the recovered config passed through
+`olddefconfig`, GCC 7.3.0, and host `-fcommon` for the old bundled dtc. Generated
+outputs were kept outside the unchanged upstream source checkout.
+
+| Export comparison | Count |
+| --- | ---: |
+| Dreem kernel exports | 7,041 |
+| Rebuilt NXP exports | 7,038 |
+| Matching CRC and export class | 7,036 |
+| Shared names with different CRCs | 2 |
+| Dreem-only names | 3 |
+| NXP-only names | 0 |
+
+The two differences are `request_bus_freq` (stock `0x5f9b360b`, baseline
+`0x3f59d6dd`) and `release_bus_freq` (stock `0xd65ed1bb`, baseline `0x13bec41d`).
+Dreem's added names are `ads_data_sem`, `sdma_ads_user_buffer`, and
+`sdma_queue_head`. `module_layout` matches exactly. This narrows interface
+reconstruction substantially, while modifications behind matching signatures
+and board initialization remain unproven.
+
 ## EEG device interface
 
 Both the kernel and `nano_core` confirm `/dev/eeg_cdev` is the ADC acquisition
@@ -127,8 +149,9 @@ pull-ups, connector routing, and power budget still require physical evidence.
 
 ## Rebuilding boundary
 
-Independent static ARM programs are built and emulation-tested here. NXP's
-baseline source is available and the exact stock config is recovered, but a
-replacement kernel, custom drivers, U-Boot, and Nerves have not been rebuilt
-and qualified. The current work makes those gaps explicit and provides inputs
-for reconstruction; it does not make flashing an upstream image safe.
+Independent static ARM programs are built and emulation-tested here. The NXP
+baseline kernel is rebuilt, and its exported interfaces closely match stock.
+A complete Dreem replacement kernel, the custom acquisition drivers, U-Boot,
+and Nerves have not been rebuilt and qualified. The current work makes those
+gaps explicit and provides inputs for reconstruction; it does not make
+flashing an upstream image safe.
