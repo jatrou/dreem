@@ -11,6 +11,21 @@ The following files were produced from or configured for [U-Boot](https://source
 
 The GPL version 2 text is provided in [`LICENSES/GPL-2.0-or-later.txt`](LICENSES/GPL-2.0-or-later.txt). Anyone redistributing the compiled images must independently satisfy the applicable GPL source and notice requirements. The included configurations are research artifacts and do not replace complete corresponding U-Boot source.
 
+## SDMA instruction decoder
+
+`development/sdma_disassemble.py` and `tests/test_sdma_disassemble.py` are
+licensed under GPL-2.0-or-later, separately from the root Apache license.
+Instruction encodings and operand layouts derive from Eli Billauer's
+`mx51_sdma_set.pm`, copyright Eli Billauer, 2011; the test includes his small
+published assembler example. See his [SDMA tutorial and assembler](https://billauer.co.il/blog/2011/10/imx-sdma-howto-assembler-linux/)
+and the [GPL text](LICENSES/GPL-2.0-or-later.txt).
+The decoder implementation is copyright 2026 Dreem research contributors.
+
+The optional external assembler is Billauer's GPL-2.0-or-later tool, with
+Jonah Petri's [raw binary output variant](https://blog.petri.us/sdma-hacking/part-2.html).
+Neither the external assembler nor Dreem's DMA binary/recovered assembly is
+bundled here. Their use does not relicense generated vendor code.
+
 ## Upstream source snapshots
 
 The files under `third-party/source-snapshots/` are attributed snapshots of these upstream repositories:

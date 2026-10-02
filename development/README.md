@@ -18,6 +18,11 @@ and our independent tools provide a way to add programs without replacing it.
 See [source and hardware findings](source-findings.md) for the evidence and
 remaining gaps.
 
+The EEG DMA program can now be recovered into assembly that reassembles
+exactly, and an independent raw-sample decoder matches the recorder's ARM
+conversion routine byte-for-byte on 8,198 synthetic records. These are useful
+reconstructed components, not the complete original source.
+
 As of October 2, 2026, these results are verified offline. The headset was not
 reachable for a new runtime test, and neither checked workstation had the
 recovery phone connected. Existing operational records describe working root
@@ -78,6 +83,58 @@ output directory. Its manifest contains component hashes, enabled buses,
 device-tree pin groups, and config symbols absent from the public tree. It
 does not extract credentials or the full root filesystem. Extracted vendor
 artifacts remain private; generating them does not grant redistribution rights.
+
+The allowlist also includes the separate EEG DMA program and its startup
+loader, the old acquisition utility, and two additional board DTBs. The old
+utility requests a different record size from the shipped driver; do not run
+it as a current acquisition example.
+
+### Recover editable EEG DMA assembly
+
+```sh
+python3 development/sdma_disassemble.py /private/work/inspection/ads_sdma.bin \
+  /private/work/ads_sdma.asm
+```
+
+The decoder creates a new mode-600 output file without executing the program.
+The original 53 instructions have been decoded and independently reassembled
+byte-for-byte. For independent reproduction, obtain the two external assembler
+inputs and verify the hashes listed in [DMA findings](sdma-findings.md). Unpack
+Billauer's archive into `/private/work/sdma_asm/` and save Petri's variant as
+`/private/work/sdma_asm.pl`. On a little-endian host:
+
+```sh
+umask 077
+PERL5LIB=/private/work/sdma_asm perl /private/work/sdma_asm.pl \
+  /private/work/ads_sdma.asm > /private/work/ads_sdma.rebuilt.bin \
+  2> /private/work/sdma-assembler.log
+cmp /private/work/inspection/ads_sdma.bin /private/work/ads_sdma.rebuilt.bin
+```
+
+This reproduces one component, not a replacement firmware. No sysfs write,
+device access, or firmware installation is part of this workflow.
+
+### Verify the independent sample decoder
+
+`eeg_samples.decode_driver_record` converts a saved 16-byte driver record
+using an explicitly supplied hardware version. It is not a reader for native
+`eeg.data` files, which already hold converted float samples. Channel mapping,
+polarity, and validation evidence are in [source findings](source-findings.md).
+
+The optional comparison uses the reviewed `nano_core` only as a private source
+of one small ARM routine; it does not start the application:
+
+```sh
+/private/work/venv/bin/python development/verify_eeg_decoder.py \
+  /private/work/inspection/nano_core
+```
+
+This requires the pinned analysis dependencies below, including Unicorn.
+The verifier generates all test data internally and prints only aggregate
+comparison counts and hashes. A match proves tested arithmetic and formatting,
+not live recording fidelity or electrical behavior.
+
+### Recover kernel interfaces
 
 With the outer archive's `rootfs.tar.gz` retained privately, recover export
 checksums and check the shipped modules:
@@ -160,9 +217,11 @@ must not replace the installed kernel. No baseline image was flashed.
 sh development/build.sh
 /private/work/venv/bin/python -m unittest \
   tests.test_firmware_development tests.test_kernel_exports \
-  tests.test_compare_exports tests.test_eeg_quality -v
+  tests.test_compare_exports tests.test_sdma_disassemble \
+  tests.test_eeg_samples tests.test_eeg_quality -v
 ```
 
 The suite covers malformed/truncated input, archive link and duplicate rejection,
-device-tree bounds, module-version records, and host/ARM feature behavior. The
-ARM comparison requires `qemu-arm`; without it only the host example is tested.
+device-tree bounds, module-version records, SDMA and sample decoding, and
+host/ARM feature behavior. The ARM comparison requires `qemu-arm`; without it
+only the host example is tested.

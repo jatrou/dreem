@@ -20,7 +20,9 @@ import zlib
 STOCK_SHA256 = "6e6356b51cf197a63fc73acfd7580e5f009c97569d6e716d82767ef13c15f17d"
 LIMIT = 128 * 1024 * 1024
 OUTER = {"zImage", "imx6ul-nano.dtb", "INSTALL", "rootfs.tar.gz"}
-INNER = {"usr/bin/nano_core", "usr/lib/os-release"}
+INNER = {"usr/bin/nano_core", "usr/lib/os-release", "etc/firmware/ads_sdma.bin",
+         "etc/init.d/S99_load_sdma_firmware", "usr/bin/simple_acquisition_ads1296",
+         "etc/imx6ul-nano1.dtb", "etc/imx6ul-nano2.dtb"}
 
 
 def digest(data):
@@ -202,7 +204,9 @@ def inspect(archive_path, output, expected_sha256, kernel_source=None):
     # Require a new directory, including when the existing path is a symlink.
     output.mkdir(mode=0o700, parents=False, exist_ok=False)
     artifacts = {name: data for name, data in outer.items() if name != "rootfs.tar.gz"}
-    artifacts.update({"nano_core": inner["usr/bin/nano_core"], "kernel.raw": raw,
+    artifacts.update({Path(name).name: data for name, data in inner.items()
+                      if name != "usr/lib/os-release"})
+    artifacts.update({"kernel.raw": raw,
                       "kernel.config": config.encode(),
                       "manifest.json": (json.dumps(report, indent=2, sort_keys=True) + "\n").encode()})
     for name, data in artifacts.items():

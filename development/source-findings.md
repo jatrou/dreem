@@ -79,6 +79,15 @@ Dreem's added names are `ads_data_sem`, `sdma_ads_user_buffer`, and
 reconstruction substantially, while modifications behind matching signatures
 and board initialization remain unproven.
 
+Disassembly confirms behavioral differences in the two bus-frequency exports.
+`request_bus_freq` at `0x8002ab58` increments mode 0–3 counters without the
+upstream frequency transition logic; mode 4 does nothing. Mode 7 increments
+the high-frequency counter and calls `set_high_bus_freq.constprop.4`.
+`release_bus_freq` at `0x80028360` decrements mode 0–3 counters and checks
+underflow, without upstream automatic frequency lowering. There is no matching
+mode-7 decrement branch. Repeated command-7 calls are therefore unsuitable as
+an exploratory probe. These findings do not establish all clock behavior.
+
 ## EEG device interface
 
 Both the kernel and `nano_core` confirm `/dev/eeg_cdev` is the ADC acquisition
@@ -108,6 +117,48 @@ Do not use `cat`, generic probes, or the example against this device node.
 
 The driver requests Linux GPIO numbers 35 (ADC power), 90 (chip select), and
 34 (data ready). These are software identifiers, not connector pin numbers.
+
+The archived `simple_acquisition_ads1296` utility is not a trustworthy current
+example. Its read call at `0x00011cd0` requests 12 bytes, whereas both shipped
+kernel read implementations copy 16 regardless of the requested count. Its
+output conversion also differs from the actual recorder. The recorder's
+reader at `0x00019c64` requests 16 bytes. This is static incompatibility
+evidence; the old utility was not executed on the headset.
+
+See [EEG DMA reconstruction](sdma-findings.md) for the recovered DMA program,
+kernel buffer interface, instruction verification, and remaining runtime gaps.
+
+### Independent sample conversion
+
+The stock recorder converts bytes 0–11 of each driver record as four signed,
+big-endian 24-bit counts. Byte 12 carries queue information on the ADS path;
+remaining bytes must not be interpreted as additional EEG samples. These
+records differ from the four float32 values already stored in `eeg.data`.
+
+The pure conversion routine is at `0x0002d66c`; layout initialization is at
+`0x0002d000`. Its hardware version comes from the same accessor used elsewhere
+in the core. The two observed branches are:
+
+| Hardware-version branch | Input channel -> output index | Input-channel polarity |
+| --- | --- | --- |
+| Zero | 0, 1, 2, 3 | -, -, -, + |
+| Nonzero | 2, 1, 3, 0 | +, -, -, - |
+
+Counts are multiplied by the double-precision constant
+`4,000,000 / 8,388,607` and rounded to float32. This describes the archived
+numerical conversion without assigning physical units or electrode names.
+`eeg_samples.py` independently implements that format and requires an explicit
+hardware version. It never opens a device and ignores metadata/padding.
+
+`verify_eeg_decoder.py` maps only the 132-byte stock conversion routine and
+literal into a Cortex-A7 Unicorn emulator, plus synthetic data, configuration,
+and stack memory. It pins the input binary hash, limits execution time and
+instructions, and does not launch the application. With Unicorn 2.1.4,
+**8,198 records matched all output bytes**, covering both layouts, zero,
+signed boundaries, and seeded random inputs. Combined fixture/result SHA-256:
+`3d0d7dc3c30329099ef10810a42dcc538121dfdd678d88fd03d624b2f87d07f5`.
+This proves the tested conversion behavior, including negative zero, without
+claiming live acquisition, calibration, or a replacement for Nerves.
 
 ## Existing sensor interfaces
 

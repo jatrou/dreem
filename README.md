@@ -196,7 +196,7 @@ python tools/dreem_h5_carve.py --help
 
 ## Licensing and attribution
 
-Project-authored software and text are licensed under [Apache-2.0](LICENSE). Original board photographs are licensed under [CC BY 4.0](LICENSES/CC-BY-4.0.txt). Attribution and scope are defined in [`NOTICE`](NOTICE).
+Except for separately identified files, project-authored software and text are licensed under [Apache-2.0](LICENSE). The SDMA instruction decoder and its tests are GPL-2.0-or-later; see [Third-party notices](THIRD_PARTY_NOTICES.md). Original board photographs are licensed under [CC BY 4.0](LICENSES/CC-BY-4.0.txt). Attribution and scope are defined in [`NOTICE`](NOTICE).
 
 U-Boot-derived recovery files, upstream source snapshots, the Dreem manual, and the FCC exhibit retain separate provenance and are not covered by the project-authored-material grants. See [Third-party notices](THIRD_PARTY_NOTICES.md) before redistributing them.
 
