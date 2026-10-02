@@ -26,6 +26,17 @@ Jonah Petri's [raw binary output variant](https://blog.petri.us/sdma-hacking/par
 Neither the external assembler nor Dreem's DMA binary/recovered assembly is
 bundled here. Their use does not relicense generated vendor code.
 
+## ADC driver reconstruction
+
+`development/ads129x_init.c`, `development/ads129x_init.h`, and
+`development/verify_adc_init.py` are GPL-2.0-only, separately from the root
+Apache license. They are independently written reconstruction and verification
+code based on observed Linux firmware behavior and published ADC register
+definitions; original vendor source has not been obtained. Copyright 2026
+Dreem research contributors. The [GPL version 2 text](LICENSES/GPL-2.0-or-later.txt)
+is included in this repository; the SPDX identifiers on these files select
+version 2 only. No vendor kernel code or extracted binary is bundled with them.
+
 ## Upstream source snapshots
 
 The files under `third-party/source-snapshots/` are attributed snapshots of these upstream repositories:

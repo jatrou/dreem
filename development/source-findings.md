@@ -145,8 +145,8 @@ in the core. The two observed branches are:
 | Nonzero | 2, 1, 3, 0 | +, -, -, - |
 
 Counts are multiplied by the double-precision constant
-`4,000,000 / 8,388,607` and rounded to float32. This describes the archived
-numerical conversion without assigning physical units or electrode names.
+`4,000,000 / 8,388,607` and rounded to float32. The initialization evidence
+below supplies a nominal unit interpretation; electrode names remain unverified.
 `eeg_samples.py` independently implements that format and requires an explicit
 hardware version. It never opens a device and ignores metadata/padding.
 
@@ -159,6 +159,10 @@ signed boundaries, and seeded random inputs. Combined fixture/result SHA-256:
 `3d0d7dc3c30329099ef10810a42dcc538121dfdd678d88fd03d624b2f87d07f5`.
 This proves the tested conversion behavior, including negative zero, without
 claiming live acquisition, calibration, or a replacement for Nerves.
+
+The subsequently recovered [ADC initialization](adc-findings.md) configures
+a nominal 4 V reference and gain 1. Those settings explain the conversion as
+nominal microvolts at the ADC input; physical calibration remains unverified.
 
 ## Existing sensor interfaces
 

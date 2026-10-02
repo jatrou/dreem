@@ -23,6 +23,12 @@ exactly, and an independent raw-sample decoder matches the recorder's ARM
 conversion routine byte-for-byte on 8,198 synthetic records. These are useful
 reconstructed components, not the complete original source.
 
+The SDMA-path ADC initializer is also reconstructed in C. Its host and ARM
+builds match the original kernel's modeled I/O traces in eight scenarios,
+with bounded polling added for a stalled peripheral. See
+[ADC reconstruction](adc-findings.md) for the register settings, comparison
+command, and remaining driver-integration work.
+
 As of October 2, 2026, these results are verified offline. The headset was not
 reachable for a new runtime test, and neither checked workstation had the
 recovery phone connected. Existing operational records describe working root
@@ -225,3 +231,16 @@ The suite covers malformed/truncated input, archive link and duplicate rejection
 device-tree bounds, module-version records, SDMA and sample decoding, and
 host/ARM feature behavior. The ARM comparison requires `qemu-arm`; without it
 only the host example is tested.
+
+With the private symbolized kernel and `nano_core`, the two differential
+verifiers provide additional coverage against original ARM instructions:
+
+```sh
+/private/work/venv/bin/python development/verify_eeg_decoder.py \
+  /private/work/inspection/nano_core
+/private/work/venv/bin/python development/verify_adc_init.py \
+  /private/work/inspection/kernel.elf
+```
+
+The ADC verifier requires both `cc` and `arm-linux-gnueabihf-gcc`. Its hardware
+responses are modeled, so passing it does not qualify the source for flashing.
