@@ -42,6 +42,13 @@ def apply(source):
     end = code.index('static int fsl_sai_trigger(', start)
     code = (code[:start] + '#ifdef CONFIG_DREEM_WM8960\n#include "sai_parameters.inc"\n#else\n' +
             code[start:end] + '#endif\n\n' + code[end:])
+    start = code.index('static irqreturn_t fsl_sai_isr(')
+    end = code.index('#ifdef CONFIG_DREEM_WM8960\n#include "sai_parameters.inc"', start)
+    code = (code[:start] + '#ifdef CONFIG_DREEM_WM8960\n#include "sai_control.inc"\n#else\n' +
+            code[start:end] + '#endif\n\n' + code[end:])
+    start = code.index('static int fsl_sai_trigger(')
+    end = code.index('static int fsl_sai_startup(', start)
+    code = code[:start] + '#ifndef CONFIG_DREEM_WM8960\n' + code[start:end] + '#endif\n\n' + code[end:]
     start = code.index('static int fsl_sai_startup(')
     end = code.index('static const struct snd_soc_dai_ops fsl_sai_pcm_dai_ops', start)
     code = (code[:start] + '#ifdef CONFIG_DREEM_WM8960\n#include "sai_lifetime.inc"\n#else\n' +
@@ -51,6 +58,7 @@ def apply(source):
         raise ValueError('unexpected SAI probe anchor')
     code = code.replace(before, before + '''
 #ifdef CONFIG_DREEM_WM8960
+	spin_lock_init(&sai->dreem_control_lock);
 	mutex_init(&sai->dreem_stream_lock);
 #endif''')
     (folder / 'fsl_sai.c').write_text(code)
@@ -58,6 +66,8 @@ def apply(source):
         (Path(__file__).parent / 'kernel/sai_lifetime.inc').read_bytes())
     (folder / 'sai_parameters.inc').write_bytes(
         (Path(__file__).parent / 'kernel/sai_parameters.inc').read_bytes())
+    (folder / 'sai_control.inc').write_bytes(
+        (Path(__file__).parent / 'kernel/sai_control.inc').read_bytes())
     code = (folder / 'fsl_sai.h').read_text()
     before = '\tstruct snd_dmaengine_dai_dma_data dma_params_tx;'
     if code.count(before) != 1:
@@ -70,12 +80,15 @@ def apply(source):
 	u32 dreem_format;
 	u32 dreem_rate[2], dreem_width[2], dreem_channels[2];
 	struct clk *dreem_owned_mclk[2];
+	spinlock_t dreem_control_lock;
+	bool dreem_running[2], dreem_orphaned[2];
+	int dreem_control_error;
 #endif''')
     # The header is also included by the board driver, before its own includes.
     before = 'struct fsl_sai {'
     if code.count(before) != 1:
         raise ValueError('unexpected SAI declaration anchor')
-    code = code.replace(before, '#ifdef CONFIG_DREEM_WM8960\n#include <linux/mutex.h>\n#endif\n\n' + before)
+    code = code.replace(before, '#ifdef CONFIG_DREEM_WM8960\n#include <linux/mutex.h>\n#include <linux/spinlock.h>\n#endif\n\n' + before)
     (folder / 'fsl_sai.h').write_text(code)
     with (folder / 'Makefile').open('a') as stream:
         stream.write('\nifeq ($(CONFIG_DREEM_WM8960),y)\nCFLAGS_fsl_sai.o += -g\nendif\n')

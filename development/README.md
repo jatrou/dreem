@@ -41,9 +41,11 @@ submission, SDMA issue and error returns. [DMA retirement](pcm-lifetime.md) adds
 37 checks for callback drain, deferred release and PCM buffer/runtime lifetime.
 [Direct-link ASoC rollback](soc-trigger.md) now unwinds failed triggers through
 DMA retirement and continues stop cleanup after component errors.
-Actual DMA sample transfer, physical stop timing, full ALSA linked-stream/DPCM handling, SAI trigger/IRQ
-handling, reconfiguration without an
-explicit free, power management and physical audio tests remain. The [earlier stream reference](audio-streams.md)
+[SAI control and IRQ handling](sai-control.md) adds 430 compiled checks for
+register errors, status flags, bounded stop and clock retention after failed close.
+Actual DMA sample transfer, physical stop timing, full ALSA linked-stream/DPCM
+handling, reconfiguration without an explicit free, power management and
+physical audio tests remain. The [earlier stream reference](audio-streams.md)
 preserves the original clock-policy limits for comparison.
 
 The research kernel also builds a [checked hardware identity API](hardware-identity.md)

@@ -121,6 +121,7 @@ class ClockMachine(StreamMachine):
         self.sai_registers, self.sai_trace = {}, []
         self.hardware_registers = {}
         self.force_locked = False
+        self.control_preempt = 0
         self.sai_force_locked = self.sai_stream_locked = False
         self.io_count, self.fail_at, self.persistent = 0, fail_at, persistent
         self.field('fsl_sai', SAI, 'regmap', REGMAP)
@@ -139,12 +140,21 @@ class ClockMachine(StreamMachine):
         require(len(arguments) <= 8, 'too many ARM arguments')
         for i, value in enumerate(arguments[4:]):
             self.put(STOP - 16 + 4 * i, value)
-        return super().call(name, *arguments[:4])
+        result = super().call(name, *arguments[:4])
+        require(self.control_preempt == 0, 'SAI control retained preemption disable')
+        return result
 
     def code(self, cpu, address, size, extra):
         name = self.stub_addresses.get(address)
         a, b, c, d = [cpu.reg_read(r) for r in (UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3)]
-        if name in ('force_lock', 'force_unlock'):
+        if name in ('preempt_count_add', 'preempt_count_sub'):
+            self.control_preempt += a if name.endswith('add') else -a
+            require(self.control_preempt >= 0, 'unbalanced SAI control preemption')
+            result = 0
+        elif name == 'preempt_schedule':
+            require(self.control_preempt == 0, 'SAI scheduled in atomic control')
+            result = 0
+        elif name in ('force_lock', 'force_unlock'):
             require(a in (REGMAP, CODEC_MAP), 'unknown regmap lock')
             field = 'sai_force_locked' if a == REGMAP else 'force_locked'
             require(getattr(self, field) == (name == 'force_unlock'), 'regmap lock order violated')

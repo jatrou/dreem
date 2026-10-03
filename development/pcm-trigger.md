@@ -4,7 +4,8 @@ The research audio build now checks a DMA submission cookie before publishing
 it and returns DMA pause, resume and termination errors from the PCM trigger
 callback. Compiled checks execute the connected PCM submission, virtual DMA
 queue and SDMA channel-start instructions. This is a prerequisite for reliable
-audio error handling, not a completed SAI trigger or DMA shutdown repair.
+audio error handling. Later [SAI control](sai-control.md) and
+[DMA retirement](pcm-lifetime.md) milestones add separate checks.
 
 ## Implementation and scope
 
@@ -81,7 +82,7 @@ option. The disposable source was restored after that comparison.
 object SHA-256 is
 `e381fc7a08535e95bec68aada9a63b9859e8e99a1d6d7b9a6d96d0b680cd4b71`.
 Private manifests bind build-source inputs, artifacts and reports;
-[direct-link trigger verification](soc-trigger.md) records the current set.
+[SAI control verification](sai-control.md) records the current set.
 
 ## Unresolved trigger and termination behavior
 
@@ -109,6 +110,7 @@ These trigger tests still model termination; the lifetime verifier executes it
 separately. Physical DMA completion and recovery from a wedged peripheral remain
 unqualified. STOP_STAT host-enable bits alone do not prove transfer completion.
 
-SAI trigger/IRQ handling, full ALSA linked-stream/DPCM handling, reconfiguration
+[SAI control and IRQ handling](sai-control.md) now checks register errors,
+stop timeouts and retained clocks. Full ALSA linked-stream/DPCM handling, reconfiguration
 without an explicit free, power management, physical clocks, playback and recording remain
 unfinished. Nothing was installed or flashed.

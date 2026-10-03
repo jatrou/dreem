@@ -294,9 +294,12 @@ static int fsl_sai_hw_free(struct snd_pcm_substream *substream, struct snd_soc_d
 {
 	struct fsl_sai *sai = snd_soc_dai_get_drvdata(dai);
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+	int ret;
 
 	mutex_lock(&sai->dreem_stream_lock);
-	dreem_sai_release_params(sai, tx);
+	ret = dreem_sai_stop_stream(sai, tx);
+	if (!ret)
+		dreem_sai_release_params(sai, tx);
 	mutex_unlock(&sai->dreem_stream_lock);
-	return 0;
+	return ret;
 }

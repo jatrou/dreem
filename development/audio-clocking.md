@@ -113,7 +113,7 @@ duplex isolation, sixteen independent PLL-factor checks including odd inputs,
 three rounding boundaries, five invalid PLL pairs, explicit/default SAI slots,
 five rate-constraint/registration checks and three original-driver negative controls.
 
-The verifier compares 17,340 codec bytes and 7,076 SAI bytes against their linked
+The verifier compares 17,340 codec bytes and 8,288 SAI bytes against their linked
 kernel contents with relocation/string validation. It separately verifies and
 executes the 140-byte forced-write helper. Negative controls reproduce the old
 codec's valid-PLL rejection and failed-parameter active flag, and the old SAI's
@@ -132,9 +132,9 @@ NXP control compiled at the same source path; its warning strings embed
 
 The [board integration record](audio-lifetime.md) owns the kernel and board
 hashes. The enabled codec SHA-256 is
-`b9a23975d1a22230b189f5c72a2c79b4d30fd5f113053a9843c1b7eb211daf77`;
-SAI is `38878215cee09d00bf6150a9af934f5d20d5b1f73ff04a61f7255f3b05a40bd4`;
-regmap is `875edc2da8c5ae6d9bc38053e7ebb2cc1b500e4290267e2b9fb3cb41482ee400`.
+`b2a45bb26227b7b98b16af09c5571f49df55c0e89809807ad6cfac6e9b695569`;
+SAI is `e7c940a20229f193acb3ce05033e1b279656ae8029110305466c0d265976abce`;
+regmap is `78efdb8b30ed3812aec6249836f1e62fa40cc5b4b8fc5f3d50a7f124558fa874`.
 Private manifests pin the source inputs, artifacts and verifier dependencies.
 
 [SAI startup and shutdown](sai-lifetime.md) now have separate resource rollback
@@ -144,9 +144,10 @@ width, and cyclic SDMA preparation accepts it. The rejection previously cited
 belongs to a different scatter/gather path. [SAI parameter setup](sai-parameters.md)
 now handles register errors and clock ownership. [PCM submission/control](pcm-trigger.md)
 now propagates DMA errors. [DMA retirement](pcm-lifetime.md) now orders callback
-drain and release using the upstream settling interval. Actual sample packing/transfer,
-physical DMA stop timing,
-ALSA negotiation/unwind internals, SAI trigger/IRQ handling and reconfiguration,
+drain and release using the upstream settling interval. [SAI control and IRQ
+handling](sai-control.md) now checks register errors and retains clocks after
+failed stops. Actual sample packing/transfer, physical DMA stop timing,
+ALSA negotiation/unwind internals, reconfiguration without an explicit free,
 power management, concurrent scheduling, physical clock timing, analogue output
 and recording fidelity remain unqualified. These callback tests do not establish
 complete `aplay`/`arecord` support.

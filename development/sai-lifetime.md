@@ -65,7 +65,7 @@ opens/closes, duplex isolation, and later platform/codec/board startup failures
 followed by retry, parameter setup, free and close. Five controls reproduce the
 original NXP driver's ownership leaks and ignored PM/register errors.
 
-The verifier checks all 7,076 emitted SAI function/table/registration bytes
+The verifier checks all 8,288 emitted SAI function/table/registration bytes
 against the linked kernel, validating relocations and strings. Zero-sized BSS
 lock-class keys also receive a checked relocation base. It executes the actual
 forced-write helper with modeled cache/bus operations and separate lock checks.
@@ -94,7 +94,8 @@ from references held by callers; it does not execute runtime-PM internals.
 tracks exact master-clock ownership. [PCM submission/control](pcm-trigger.md)
 now propagates DMA errors. [DMA retirement](pcm-lifetime.md) now checks callback
 and storage lifetime. [Direct-link ASoC rollback](soc-trigger.md) now uses that
-cleanup. SAI trigger/IRQ handling, physical DMA stop timing and
+cleanup. [SAI control and IRQ handling](sai-control.md) now checks register
+errors and retained resources after failed close. Physical DMA stop timing and
 full ALSA linked-stream/DPCM handling, reconfiguration without
 an explicit free, actual PCM sample transfer and codec bias/power cleanup remain.
 [Cyclic DMA preparation](pcm-dma.md) accepts packed 20-bit samples and now has

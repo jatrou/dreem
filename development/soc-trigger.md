@@ -75,11 +75,11 @@ earlier verifier reports also pass with the updated comparison code, and the
 kernel/module build retains all 44 matching ADC imports.
 
 The ASoC object SHA-256 is
-`ca35489a49f81eee6b22db93b57d7aac81b3701a00bc53c06d9a29e777c169e1`.
+`bb4477c3949fda14fcc2395d3317f82d2d390faa3836a0e4c0192212bbcdf0de`.
 [Board integration](audio-lifetime.md) owns the kernel/board hashes; the existing
-PCM and clock documents own their object hashes. Private qualification binds
-40 build-source inputs, 14 artifacts, thirteen reports and their local verifier
-dependency hashes. The new trigger verifier's dependency closure has 18 files.
+PCM and clock documents own their object hashes. The later
+[SAI control verification](sai-control.md) records the current private qualification
+manifest. This trigger verifier's dependency closure has 18 files.
 
 With only the research audio option disabled, the complete ASoC object is
 byte-identical to a previous-source build at the same source path:
@@ -88,9 +88,9 @@ The private source was restored after that comparison.
 
 ## Remaining boundaries
 
-The SAI trigger and ISR still ignore register errors in this build. Injected
-CPU failures prove ASoC cleanup behavior, not that the SAI driver already
-detects those errors. Its register semantics, end-of-frame stopping and duplex
-state need a separate repair. Full ALSA linked-stream scheduling, DPCM/ASRC,
+The later [SAI control repair](sai-control.md) now reports real register failures
+to this rollback path and adds connected checks through DMA retirement. Its
+status-bit semantics, bounded stop and duplex handling have separate modeled
+verification. Full ALSA linked-stream scheduling, DPCM/ASRC,
 power management, independent unbind and physical audio remain unqualified.
 No kernel was installed or flashed.

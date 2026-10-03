@@ -73,6 +73,7 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
                    here / "apply_pcm_audio_overlay.py", here / "kernel/sai_parameters.inc",
                    here / "apply_pcm_lifetime_overlay.py", here / "kernel/sdma_audio_lifetime.inc",
                    here / "apply_soc_trigger_overlay.py", here / "kernel/soc_trigger_dreem.inc"]
+        inputs += [here / "kernel/sai_control.inc"]
     source_hashes = {str(p.relative_to(here)): sha(p) for p in inputs}
     output.mkdir(mode=0o700)
     tree, kernel, module = (output / name for name in ("source", "kernel", "module"))

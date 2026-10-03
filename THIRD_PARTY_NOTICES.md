@@ -177,6 +177,12 @@ and verification changes are by Dreem research contributors (2026).
 `development/verify_soc_trigger.py` is new GPL-2.0-only verification code.
 See [direct audio trigger rollback](development/soc-trigger.md) for its scope.
 
+`development/kernel/sai_control.inc` uses GPL-2.0-or-later and adapts the
+public Freescale SAI driver (2012-2016), with checked trigger/IRQ operations
+and failed-stop resource retention by Dreem research contributors (2026).
+`development/verify_sai_control.py` is new GPL-2.0-only verification code.
+See [SAI control verification](development/sai-control.md) for its boundaries.
+
 ## Hardware identity access
 
 `development/apply_hardware_overlay.py` uses GPL-2.0-only and contains small

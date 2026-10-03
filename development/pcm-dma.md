@@ -103,13 +103,13 @@ The enabled object SHA-256 values are:
 
 | Object | SHA-256 |
 | --- | --- |
-| SDMA | `d71e643e233a1b9816db98eadc483f89eb5acb444715cbf9ca23121f6e038fa0` |
-| Core PCM | `d38ca5063e4eaa0cdfce3cf57753f0cd30c58b4e1486340332f3dedadc6ee65c` |
-| i.MX PCM | `bfccdcfbedbb340fe997b735d678baeaa5b2bd8930b62d4bd799f6793898b2d8` |
+| SDMA | `bbec2fbbc55c05fd3fccdd88e116428437400b644296ffd0fe1f7609e2646cb2` |
+| Core PCM | `554f4ce02b3827f282f6627adda0d0e1182b4976212397e3634f1fff0b7cadd3` |
+| i.MX PCM | `2b25251e1cea81c82868f510fba9a5d73f101937e5e38b5caf2a54423e0ccb56` |
 
 [Board integration](audio-lifetime.md) owns the kernel hash. Private manifests
 pin build-source inputs, artifacts, verifier sources and reports;
-[direct-link trigger verification](soc-trigger.md) records the current set.
+[SAI control verification](sai-control.md) records the current set.
 
 ## Remaining boundaries
 
@@ -121,7 +121,8 @@ sample payloads, schedule completion IRQs, or qualify residue/pause behavior.
 submission and SDMA issue/pause/resume instructions with modeled hardware.
 [DMA retirement](pcm-lifetime.md) separately checks callback and storage lifetime.
 [SAI parameter errors](sai-parameters.md) and [direct-link ASoC rollback](soc-trigger.md)
-also have separate checks. SAI trigger/IRQ handling, physical DMA stop timing,
+also have separate checks. [SAI control and IRQ handling](sai-control.md) now
+checks register errors and failed-stop ownership. Physical DMA stop timing,
 full ALSA linked-stream/DPCM handling, reconfiguration without
 an explicit free, codec bias/power transitions, physical clocks,
 analogue output and recording fidelity remain unfinished. Nothing was flashed.

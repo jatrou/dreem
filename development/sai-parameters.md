@@ -68,8 +68,9 @@ invokes the DMA platform before the CPU DAI. Propagating a CPU trigger error
 alone would not establish that previously started DMA was stopped. The later
 [PCM submission/control repair](pcm-trigger.md) checks DMA errors,
 and [DMA retirement](pcm-lifetime.md) now orders deferred cleanup.
-[Direct-link ASoC rollback](soc-trigger.md) now uses that cleanup. SAI trigger,
-full ALSA linked-stream/DPCM handling and physical DMA stop timing remain unresolved.
+[Direct-link ASoC rollback](soc-trigger.md) now uses that cleanup, and
+[SAI control](sai-control.md) reports register errors and stop timeouts. Full ALSA
+linked-stream/DPCM handling and physical DMA stop timing remain unresolved.
 
 ## Build and verification
 
@@ -93,7 +94,7 @@ ignored parameter writes, stale DSP mode and mode-dependent clock leakage.
 
 Verified offline on October 3, 2026 (America/New_York): **362 cases** pass,
 including three previous-driver controls. Full object comparisons cover all
-7,076 emitted SAI function/table/registration bytes and the linked codec. The
+8,288 emitted SAI function/table/registration bytes and the linked codec. The
 37 PCM lifetime, 69 PCM trigger, 58 SAI lifetime, 305 clock, 58 PCM preparation, 50 board lifetime,
 43 identity, 76 connected EEG, 617 bus-frequency and 58 DDR preparation cases
 also pass on this kernel.
@@ -104,12 +105,14 @@ At the parameter milestone, with the research audio option disabled, complete
 SAI and board objects were byte-identical to the preceding source controls at
 the same path/configuration and matched the recorded NXP baseline hashes. Disposable source was
 restored after the comparison. Private manifests bind source inputs, artifacts
-and reports; [direct-link trigger verification](soc-trigger.md) records the
+and reports; [SAI control verification](sai-control.md) records the
 current set. [Board integration](audio-lifetime.md) owns the
 kernel/board hashes; [clock verification](audio-clocking.md) owns the
 codec/SAI/regmap hashes.
 
 Runtime-PM, clocks, register transactions, locks and ALSA ordering remain models.
 These checks do not execute the ALSA core, concurrent scheduling, trigger/IRQ
-paths, physical clock generation or DMA transfers. Codec bias/power transitions,
+paths, physical clock generation or DMA transfers. The separate [SAI control
+verifier](sai-control.md) covers trigger/IRQ and connected ASoC rollback.
+Codec bias/power transitions,
 actual playback and recording fidelity still require work. Nothing is flashed.

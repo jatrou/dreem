@@ -104,9 +104,9 @@ object is byte-identical to the NXP baseline,
 SHA-256 `c77b315cd7089622dbb916d55bf2c5a36f16a42c555a836f3d469423d4596c50`.
 
 The enabled kernel SHA-256 is
-`3c21b9fd5d57b9a72f73b0d64971706d954a82e85656d69886d65bc7dfdd35c2`;
+`86ca3b72f86a86002bd8f80c54991dd8658f77be0ce080551a48b995532855a1`;
 the board object SHA-256 is
-`1c5a92b9d72bc010a40c91589fd5124cfc868e3b977ceb79d3264eb88d62f465`.
+`bda592e54d90509f6d517b6da622158c359592bc74b63920e40ca52a540d0d14`.
 Private build/verification manifests pin the exact sources, inputs and artifacts.
 This build also includes the [connected codec/SAI clock and retry repairs](audio-clocking.md),
 the [SAI startup/close repairs](sai-lifetime.md),
@@ -124,7 +124,8 @@ PCM configuration and descriptor preparation now have connected checks.
 SAI parameter writes and clock ownership now have separate checks.
 [PCM submission/control](pcm-trigger.md) and [DMA retirement](pcm-lifetime.md)
 now have connected checks. [Direct-link ASoC rollback](soc-trigger.md) also
-has connected DMA checks. SAI trigger/IRQ handling, physical DMA stop timing,
+has connected DMA checks. [SAI control and IRQ handling](sai-control.md) now
+checks errors and failed-stop clock retention. Physical DMA stop timing,
 full ALSA linked-stream/DPCM handling, reconfiguration without
 an explicit free, actual PCM sample transfer, physical SAI/codec interaction,
 power management, independent codec/controller unbind, audible output and
