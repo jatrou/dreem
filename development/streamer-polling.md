@@ -14,6 +14,10 @@ the [Linux poll interface](https://man7.org/linux/man-pages/man2/poll.2.html).
 Existing connection handling, including write-half-closed receivers, is retained.
 No new client control operation is introduced.
 
+The [optional queue repair](streamer-queue.md) now combines this change with
+preservation of partially sent frames during congestion. The measurements and
+source hash below remain the polling-only reference.
+
 ## Input and preservation
 
 The input is the existing project's `deployment/live-streaming/device/dreem_live_streamer.c`,
@@ -83,6 +87,8 @@ and excludes that final fragment. It does not reinterpret it as a complete
 frame or claim complete capture. The inherited queue-overflow/disconnect and
 shutdown behavior can still end a TCP connection mid-frame; receivers must
 retain that loss information. This polling repair does not change that policy.
+The combined candidate addresses congestion eviction separately; other causes
+of partial connection tails still require loss accounting.
 
 ## Deployment evidence and remaining work
 

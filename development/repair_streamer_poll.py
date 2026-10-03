@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Build a bounded polling repair from one privately supplied streamer source.
+"""Build checked polling/queue repairs from one privately supplied streamer source.
 
 The desktop checkout remains untouched. Full input/patched source and generated
 executables are retained only in a new private directory outside this repository.
@@ -24,14 +24,60 @@ EDITS = (
             }'''),
 )
 
+QUEUE_DROP = '''static bool queue_drop_oldest_unsent(streamer_t *state) {
+    frame_blob_t *previous = NULL;
+    frame_blob_t *victim = state->queue.head;
+    /* Bytes already accepted by TCP must finish on this connection. Keep that
+     * frame immutable and evict the oldest wholly unsent frame after it.
+     */
+    while (victim != NULL && victim->sent != 0U) {
+        previous = victim;
+        victim = victim->next;
+    }
+    if (victim == NULL) {
+        return false;
+    }
+    if (previous == NULL) {
+        state->queue.head = victim->next;
+    } else {
+        previous->next = victim->next;
+    }
+    if (state->queue.tail == victim) {
+        state->queue.tail = previous;
+    }
+    state->queue.bytes -= victim->length;
+    state->queue.dropped_frames++;
+    free_frame(victim);
+    return true;
+}
+'''
 
-def repair_source(raw):
+
+def repair_source(raw, *, preserve_partial_frame=False):
     if hashlib.sha256(raw).hexdigest() != SOURCE_SHA256:
         raise ValueError('unreviewed streamer source')
     source = raw.decode('utf-8').replace('\r\n', '\n')
     for before, after in EDITS:
         if source.count(before) != 1:
             raise ValueError('polling repair anchor is not unique')
+        source = source.replace(before, after)
+    if preserve_partial_frame:
+        start = source.index('static void queue_drop_head(streamer_t *state) {')
+        end = source.index('\nstatic bool queue_frame(', start)
+        source = source[:start] + QUEUE_DROP + source[end:]
+        before = '        queue_drop_head(state);'
+        after = '''        if (!queue_drop_oldest_unsent(state)) {
+            /* A future oversized batch may leave only a partial head. Reject
+             * the new frame rather than corrupt that connection or spin.
+             * read_stream retains its source offset on this failure.
+             */
+            state->queue.dropped_frames++;
+            free_frame(frame);
+            log_event("ring_full_with_partial_frame", NULL);
+            return false;
+        }'''
+        if source.count(before) != 1:
+            raise ValueError('queue repair anchor is not unique')
         source = source.replace(before, after)
     return source.encode('utf-8')
 
@@ -42,9 +88,9 @@ def write_private(path, data):
         stream.write(data)
 
 
-def build(source, output):
+def build(source, output, *, preserve_partial_frame=False):
     raw = source.read_bytes()
-    patched = repair_source(raw)
+    patched = repair_source(raw, preserve_partial_frame=preserve_partial_frame)
     output = output.resolve()
     repository = Path(__file__).resolve().parents[1]
     if output.is_relative_to(repository):
@@ -60,6 +106,7 @@ def build(source, output):
         'repair_tool_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'desktop_checkout_modified': False,
         'deployed': False,
+        'preserve_partial_frame': preserve_partial_frame,
         'builds': {},
     }
     for name, compiler, flags in (
@@ -95,5 +142,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source', type=Path, help='reviewed private dreem_live_streamer.c')
     parser.add_argument('output', type=Path, help='new private directory outside the repository')
+    parser.add_argument('--preserve-partial-frame', action='store_true',
+                        help='evict unsent frames without disconnecting a partially sent head')
     args = parser.parse_args()
-    print(json.dumps(build(args.source, args.output), indent=2))
+    print(json.dumps(build(args.source, args.output,
+                           preserve_partial_frame=args.preserve_partial_frame), indent=2))

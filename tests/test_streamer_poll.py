@@ -59,13 +59,16 @@ class StreamerSourcePinTests(unittest.TestCase):
 
 
 class StreamerPollTests(unittest.TestCase):
+    source_transform = staticmethod(repair_source)
+    resume_receive_buffer = None
+
     @classmethod
     def setUpClass(cls):
         source = os.environ.get('DREEM_STREAMER_SOURCE')
         if not source:
             raise unittest.SkipTest('DREEM_STREAMER_SOURCE must identify the reviewed private source')
         raw = Path(source).read_bytes()
-        patched = repair_source(raw)
+        patched = cls.source_transform(raw)
         cls.tmp = tempfile.TemporaryDirectory(prefix='dreem-streamer-poll-')
         cls.directory = Path(cls.tmp.name)
         cls.builds = {}
@@ -181,12 +184,17 @@ class StreamerPollTests(unittest.TestCase):
                     writer.start()
                 if mode == 'backpressure':
                     time.sleep(1.3)
+                    if self.resume_receive_buffer:
+                        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF,
+                                        self.resume_receive_buffer)
                 wire, closed = receive(sock, time.monotonic() + seconds + 1)
                 self.assertTrue(closed)
                 stdout, stderr = process.communicate(timeout=2)
                 self.assertEqual(process.returncode, 0, 'streamer did not exit cleanly')
                 metrics = json.loads(stdout)
+                metrics['congestion_disconnects'] = stderr.count(b'reason=congestion_partial_frame')
                 frames, partial_bytes = decode_frames(wire, allow_partial_tail=mode == 'backpressure')
+                metrics['partial_final_bytes'] = partial_bytes
                 self.assertTrue(any(frame['type'] == 1 for frame in frames), 'missing hello')
                 self.observations.append({'build': name, 'version': version, 'case': mode,
                                           'metrics': metrics, 'validated_frames': len(frames),

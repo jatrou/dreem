@@ -189,6 +189,12 @@ receiver protocol and passes growing-file, reconnection and backpressure checks
 on host and ARM emulation. Native deployment and resource/fidelity validation
 remain unfinished; the installed receiver is still disabled.
 
+The [combined streamer queue repair](streamer-queue.md) additionally preserves a
+partially sent frame when the ring fills, evicting unsent frames while retaining
+explicit data gaps. Connected host/ARM tests eliminate the congestion-forced
+disconnect seen in the polling-only control. It is built privately and has not
+been installed on the headset.
+
 ## Build an independent feature
 
 `eeg_quality.c` reads native four-channel EEG files and emits one JSON record
