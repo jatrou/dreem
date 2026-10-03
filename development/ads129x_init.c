@@ -3,15 +3,15 @@
  * ADS129x register definitions. See adc-findings.md for evidence and limits. */
 #include "ads129x_init.h"
 
-#define SPI_BASE UINT32_C(0x02008000)
+#define SPI_BASE 0x02008000u
 #define SPI_RX (SPI_BASE + 0)
 #define SPI_TX (SPI_BASE + 4)
 #define SPI_CONTROL (SPI_BASE + 8)
 #define SPI_CONFIG (SPI_BASE + 12)
 #define SPI_DMA (SPI_BASE + 20)
 #define SPI_STATUS (SPI_BASE + 24)
-#define SPI_CLOCK UINT32_C(0x020c406c)
-#define SDMA_EVENT UINT32_C(0x020ec20c)
+#define SPI_CLOCK 0x020c406cu
+#define SDMA_EVENT 0x020ec20cu
 #define POWER_GPIO 35
 #define CS_GPIO 90
 

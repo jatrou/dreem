@@ -169,6 +169,9 @@ The remaining acquisition-driver integration is listed in the same document.
 Its ring reader now also matches 270 synthetic payload/state cases, with
 deliberate fixes for uninitialized padding, short buffers, and status validation.
 These fixes are in reconstructed source only, not the installed kernel.
+The [Linux research adapter](kernel-integration.md) builds and links these
+operations to the reviewed stock SDMA exports; its interface and compiled-code
+verification do not yet establish device-side compatibility.
 
 ## Existing sensor interfaces
 

@@ -31,13 +31,19 @@ command, and remaining driver-integration work.
 
 Start, stop, and release are reconstructed in the same component. Host and
 ARM builds match 72 modeled stock-kernel cases, with bounded shutdown in ten
-additional stalled-peripheral/queue cases. This still needs the Linux driver,
-SDMA channel setup, Linux sample delivery, and on-device qualification.
+additional stalled-peripheral/queue cases. These checks cover the portable
+component; experimental Linux integration is described below.
 
 The ring reader is also reconstructed: 270 synthetic cases match the stock
 sample payload, metadata, and state changes. It initializes the full output,
 rejects short buffers, and validates status after skipped placeholders; the
 archived reader does not. See the same ADC document for reproduction and limits.
+
+An experimental [Linux ADC module](kernel-integration.md) now connects those
+functions to the stock kernel's real SDMA exports. It builds against the matched
+NXP headers, reproduces the three shared-object CRCs, and matches all 42 stock
+imports. Its compiled read/ioctl paths pass 20 emulated cases. It is not loaded
+or qualified on the headset; full SDMA source reconstruction is still pending.
 
 As of October 2, 2026, these results are verified offline. The headset was not
 reachable for a new runtime test, and neither checked workstation had the

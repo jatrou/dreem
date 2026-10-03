@@ -11,15 +11,17 @@ ring-to-record conversion. It is not a complete Linux acquisition driver.
 identification, register setup, acquisition control, and sample extraction.
 It compiles for the host and
 Cortex-A7. A callback supplies ordered MMIO, GPIO, and delay operations; the
-verification tools supply synthetic operations only. There is no hardware
-backend, device-node access, or installation step. The start function can
-operate only through a caller-supplied transport; these checks use emulation.
+verification tools supply synthetic operations only. The separate
+[Linux research adapter](kernel-integration.md) now supplies a hardware-facing
+transport and file operations, but has not been installed or tested on the
+headset. The portable checks below continue to use emulation only.
 
-Integration into a replacement kernel still needs Linux MMIO barriers and
-resource ownership, the ADC character-device interface, SDMA channel/script
-setup, Linux sample delivery, suspend/resume, and hardware testing. It must
-not run alongside the existing ADC owner. An upstream kernel with this one
-component would still be incomplete.
+The experimental adapter implements ordered MMIO, resource ownership, and the
+character-device interface using the stock SDMA provider. Full reconstruction
+still needs SDMA channel/script setup and interrupt handling; lifecycle,
+suspend/resume, and hardware testing remain open. It must not run alongside
+the existing ADC owner. An upstream kernel with this one component would still
+be incomplete.
 
 The reconstruction uses the same register addresses and observed sequence as
 six stock functions: `ads1296_sdma_open`, `spi_conf_command`, `spi_flush`,
@@ -196,7 +198,8 @@ NEON for a buffer copy, which is unsuitable for this kernel-oriented component
 without special floating-point context handling. The verified code uses general
 registers and runs with emulated floating-point access disabled.
 
-No actual userspace pointer is copied by this portable component. A Linux
-`read` wrapper still must enforce caller length, `copy_to_user` semantics,
-exclusive access, DMA visibility, and correct wait/interrupt behavior. Concurrent
-DMA writes and physical acquisition fidelity remain unverified.
+No actual userspace pointer is copied by this portable component. The separate
+Linux adapter implements caller-length checks, copy retries, exclusive access,
+DMA ordering, and bounded waits. Its verification scope and remaining gates
+are recorded in the integration document. Concurrent DMA writes and physical
+acquisition fidelity remain unverified.

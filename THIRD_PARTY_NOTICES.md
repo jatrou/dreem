@@ -39,6 +39,12 @@ Dreem research contributors. The [GPL version 2 text](LICENSES/GPL-2.0-or-later.
 is included in this repository; the SPDX identifiers on these files select
 version 2 only. No vendor kernel code or extracted binary is bundled with them.
 
+`development/kernel/`, `development/build_adc_module.py`, and
+`development/verify_adc_module.py` use the same GPL-2.0-only terms. Their Linux
+integration and verification code is independently written. Public Linux
+headers/tooling and private stock export metadata are external build inputs;
+compiled kernels and modules are not bundled here.
+
 ## Upstream source snapshots
 
 The files under `third-party/source-snapshots/` are attributed snapshots of these upstream repositories:

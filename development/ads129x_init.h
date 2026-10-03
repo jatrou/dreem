@@ -2,10 +2,14 @@
 #ifndef DREEM_ADS129X_INIT_H
 #define DREEM_ADS129X_INIT_H
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
 #include <stdint.h>
+#endif
 
 /* Transport must supply ordered MMIO accesses and exclusive ADC ownership.
- * No real hardware transport is supplied by this offline reconstruction. */
+ * The Linux research adapter remains unqualified for physical deployment. */
 enum ads_io_operation {
     ADS_READ32, ADS_WRITE32, ADS_GPIO_OUTPUT, ADS_GPIO_SET,
     ADS_SLEEP_MS, ADS_SLEEP_US_RANGE,
@@ -34,8 +38,8 @@ int ads129x_sdma_initialize(const struct ads_transport *transport);
 /* After initialization, with exclusive ownership and a configured SDMA
  * channel. QUEUE_HEAD returns the producer slot (0..63); QUEUE_TRYLOCK returns
  * zero for a consumed notification, nonzero when empty. Both receive a=b=0.
- * State and ring must remain valid throughout the call. No transport for
- * physical hardware is supplied. Start/stop/release use bounded polling and
+ * State and ring must remain valid throughout the call.
+ * Start/stop/release use bounded polling and
  * disable requests, power off, and deselect on timeout. Release powers off on
  * success too. Call initialization again after release or an error. */
 int ads129x_sdma_start(const struct ads_transport *transport,
@@ -51,7 +55,7 @@ int ads129x_sdma_release(const struct ads_transport *transport);
  * five interrupted waits, or -22 for invalid arguments/state. Unlike the
  * original driver, short outputs and malformed frames after placeholders are
  * rejected. The output remains untouched unless a full frame is returned.
- * No userspace-copy or Linux file-operations wrapper is provided here. */
+ * Userspace-copy and Linux file operations belong to the separate adapter. */
 int ads129x_sdma_read_frame(const struct ads_transport *transport,
                            struct ads_sdma_state *state,
                            uint8_t *output, unsigned output_size);
