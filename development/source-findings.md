@@ -234,6 +234,11 @@ identify supported code paths, not a fresh presence check on a particular unit.
 The sensor bus has existing owners; reading a FIFO or rewriting configuration
 can affect the recorder. Avoid broad I2C scans and forced address claims.
 
+The [motion reconstruction](motion-findings.md) now documents the LIS2HH12
+count-to-recorder conversion, native 12-byte float file rows, nominal 50 Hz
+cadence and zero-placeholder ambiguity. Its independent C decoder matches the
+original ARM conversion; the new file-based motion monitor does not open this bus.
+
 ST supplies a [platform-independent LIS2HH12 driver with source](https://github.com/STMicroelectronics/lis2hh12-pid)
 under BSD-3-Clause. Its [datasheet](https://www.st.com/resource/en/datasheet/lis2hh12.pdf)
 confirms the identity register. Other primary references are

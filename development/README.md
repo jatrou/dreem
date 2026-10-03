@@ -73,6 +73,13 @@ exactly, and an independent raw-sample decoder matches the recorder's ARM
 conversion routine byte-for-byte on 8,198 synthetic records. These are useful
 reconstructed components, not the complete original source.
 
+The [motion conversion and file format](motion-findings.md) are also recovered.
+An independent C decoder matches the original ARM routine on 4,439 synthetic
+records in both host and ARM builds. A static ARM motion monitor reads or follows
+native `accelerometer.data` files and reports vector/axis variation without
+accessing the sensor bus. Six feature tests pass on host and ARM emulation;
+device-side timing and recording-fidelity checks remain.
+
 Independent SDMA primitives construct the channel context and handle producer
 progress; their native and ARM builds match 399 stock cases. They are now
 integrated into an [experimental Linux provider](sdma-provider.md), which links
@@ -280,6 +287,8 @@ instructions pass it correctly.
 The existing kernel exposes I2C userspace access. Many sensor additions can use
 that interface without a replacement kernel. ADC acquisition, existing sensor
 FIFOs, clock control, and the recording process remain shared resources.
+The [motion monitor](motion-findings.md#build-and-use) provides a second independent
+feature using the recorder's existing files while that hardware work continues.
 
 ## Rebuild and compare the NXP baseline
 
@@ -315,7 +324,7 @@ sh development/build.sh
 /private/work/venv/bin/python -m unittest \
   tests.test_firmware_development tests.test_kernel_exports \
   tests.test_compare_exports tests.test_sdma_disassemble \
-  tests.test_eeg_samples tests.test_eeg_quality -v
+  tests.test_eeg_samples tests.test_eeg_quality tests.test_motion_quality -v
 ```
 
 The suite covers malformed/truncated input, archive link and duplicate rejection,

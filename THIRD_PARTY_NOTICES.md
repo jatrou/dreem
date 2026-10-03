@@ -35,6 +35,17 @@ Jonah Petri's [raw binary output variant](https://blog.petri.us/sdma-hacking/par
 Neither the external assembler nor Dreem's DMA binary/recovered assembly is
 bundled here. Their use does not relicense generated vendor code.
 
+## Userspace motion reconstruction
+
+The independent userspace motion decoder, file monitor and verification code
+(`development/motion_samples.c`, `development/motion_samples.h`,
+`development/motion_quality.c`, `development/verify_motion_decoder.py`, and
+`tests/test_motion_quality.py`) use Apache-2.0. They implement observed data
+formats and elementary coordinate/statistical operations; they contain no
+extracted vendor instructions or decompiler output. The optional comparison
+requires a privately supplied firmware executable. See
+[motion findings](development/motion-findings.md) for provenance and limits.
+
 ## ADC driver reconstruction
 
 `development/ads129x_init.c`, `development/ads129x_init.h`,
