@@ -75,6 +75,8 @@ class Machine:
         self.cancel_on_wait, self.signal_on_wait = False, False
         self.locked, self.spi_locked = False, False
         self.failure = None
+        self.provider_error = 0
+        self.provider_fault_on_wait = False
         self.compatible, self.resource_start = True, SPI
         self.allocated, self.registered, self.tracking = False, False, False
         self.gpios, self.mappings, self.device_refs = set(), set(), 0
@@ -207,7 +209,9 @@ class Machine:
         a, b, c = (cpu.reg_read(r) for r in (UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2))
         result = 0
         self.calls.append(name)
-        if name == "of_machine_is_compatible":
+        if name == "dreem_sdma_status":
+            result = self.provider_error
+        elif name == "of_machine_is_compatible":
             compatible = b"fsl,imx6ull-femto\0"
             require(bytes(cpu.mem_read(a, len(compatible))) == compatible, "wrong machine gate")
             result = int(self.compatible)
@@ -309,6 +313,8 @@ class Machine:
             if a != self.symbols["ads_data_sem"]:
                 raise ValueError("unexpected semaphore address")
             result = self.model.io(QUEUE_TRYLOCK, 0, 0)
+            if self.provider_fault_on_wait:
+                self.provider_error = -75
             if result and name == "down_timeout":
                 result = -62
                 if self.cancel_on_wait:
@@ -701,6 +707,31 @@ def verify(path):
     results.append("stalled stop shuts down and invalidates initialization")
     results.extend(verify_lifecycle(module))
     results.extend(verify_test_signal(module))
+    if any(s.name == "dreem_sdma_status" and s["st_shndx"] == "SHN_UNDEF"
+           for s in module.elf.get_section_by_name(".symtab").iter_symbols()):
+        for case in ("read", "pending copy", "blocking wake", "nonblocking wake", "start", "test signal", "open"):
+            machine = Machine(module, nonblock=case == "nonblocking wake")
+            if case in ("blocking wake", "nonblocking wake"):
+                machine.provider_fault_on_wait = True
+            else:
+                machine.provider_error = -75
+            if case == "pending copy":
+                machine.field("dreem_adc", ADC, "pending", 1, width=1)
+            if case in ("start", "test signal"):
+                machine.field("dreem_adc", ADC, "running", 0, width=1)
+                ret = machine.call("adc_ioctl", FILE, 1 if case == "start" else 5, 0)
+            elif case == "open":
+                machine.field("dreem_adc", ADC, "opened", 0, width=1)
+                ret = machine.open()
+            else:
+                ret = machine.call("adc_read", FILE, USER, 16, 0)
+            require(ret == -75, "provider fault was not propagated: " + case)
+            require("__copy_to_user" not in machine.calls, "provider fault exposed a sample")
+            if case != "open":
+                machine.require_power_off()
+                require(not machine.field("dreem_adc", ADC, "initialized", width=1),
+                        "provider fault retained ADC initialization")
+            results.append("provider fault: " + case)
     return {"module_sha256": hashlib.sha256(module.binary).hexdigest(),
             "passed_cases": len(results), "cases": results,
             "runtime_qualified": False,

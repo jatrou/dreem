@@ -80,10 +80,11 @@ The full acquisition driver and vendor application are still not rebuilt.
 ## Reconstructed provider primitives
 
 `sdma_eeg.c` and `sdma_eeg.h` now implement channel-context construction and
-producer-counter progress in independent C. **These are not yet a Linux SDMA
-provider.** They do not allocate DMA memory, load firmware, bind a device,
-install an interrupt handler, publish kernel exports, or replace the installed
-driver. They are intended for the pending provider integration.
+producer-counter progress in independent C. These portable functions are now
+used by the [experimental Linux provider](sdma-provider.md), which adds DMA
+allocation, script/context loading, exports, and interrupt wiring. The portable
+functions alone perform none of those operations, and the integrated driver
+has not replaced the installed firmware.
 
 The recovered context is 32 words (128 bytes). Word 0 holds the 14-bit program
 counter; words 2–4 hold ring physical address, 1,024, and counter physical
@@ -112,9 +113,10 @@ also exceeds the bound; it is treated as nearly a full 32-bit wrap. Even a
 The reconstruction instead accepts one coherent counter snapshot per interrupt
 and processes at most 64 notifications. Larger jumps latch `-75` (`EOVERFLOW`)
 without publishing new frames. The fault persists until a coordinated reset.
-The future Linux provider must disable DMA, coordinate with the reader, and
-implement the notification callback with the required DMA/publication barriers.
-The primitive itself cannot perform those operations. This per-interrupt bound
+The Linux provider disables EEG requests on this fault and coordinates with
+the managed ADC reader through a status export; its notification callback adds
+DMA/publication ordering. The primitive itself cannot perform those operations.
+This per-interrupt bound
 also does not detect every accumulated overrun across interrupts or prevent
 concurrent DMA writes from overwriting a frame during a read.
 
@@ -148,7 +150,8 @@ with both GCC 7.3 and GCC 13 produce the same combined comparison SHA-256:
 The ARM builds use soft-float and disable vectorization. The C component also
 compiles as an object through the pinned Linux 4.1.15 Kbuild with GCC 7.3 and
 warnings treated as errors. This is compile compatibility, not a linked or
-qualified replacement provider.
+qualified replacement provider; the subsequent linked build and its own tests
+are documented in [provider integration](sdma-provider.md).
 
 ### Remaining loader work
 
@@ -162,8 +165,9 @@ returns an error. The archived 106-byte program fits that region, but these
 observations are reasons to add validated sizes, allocation rollback, and
 success-only publication in the replacement loader.
 
-Provider integration still requires real DMA allocation/lifetime ownership,
-bounded script placement, channel reservation and context loading, ordered
-interrupt dispatch, reader coordination on faults, and suspend/resume handling.
+The research integration now supplies bounded placement, channel reservation,
+context loading, interrupt dispatch, and reader fault handling. It pins DMA
+storage after submission and refuses system sleep while enabled. Normal DMA
+quiescence/reclamation, coordinated restart, and suspend/resume remain unfinished.
 The complete board kernel additionally needs the other Dreem-specific drivers
 and board behavior identified in [source findings](source-findings.md).

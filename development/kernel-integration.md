@@ -27,7 +27,9 @@ The NXP baseline alone does not export these objects and cannot run this
 adapter without a real provider. Its matched headers and public export table
 are used to build the module; the three additional entries are recovered from
 the exact stock kernel. No substitute provider, modified CRC, forced-load
-option, or replacement SDMA implementation is included.
+option is used by this stock-interface build. A separate
+[source-built provider](sdma-provider.md) now supplies these exports in an
+experimental kernel; that build uses its own generated symbol table.
 
 Binding is disabled unless `sdma_hardware_confirmed` is explicitly enabled.
 The probe additionally restricts the target to the archived Femto machine
@@ -103,7 +105,7 @@ disabled. The older GCC 7.3 does not support the newer host verifier's
 structure offsets; generated modules may contain local build paths.
 
 The recorded build's module SHA-256 is
-`2e59da5cd6e1611fcf8fd2a9360fbc6ce34724645c3e753843d0da8df700fdae`.
+`b56f5fb7b2ece286b73f4e7b6c618f76a4a0cb69a8cdce43154b7be8b70c67d2`.
 This is an evidence identifier, not a reproducible-build claim: path and build
 metadata can change it. Each run writes `module-report.json` with source,
 configuration, artifact hashes, checked declarations, and import results.
@@ -150,6 +152,13 @@ DMA concurrency, and device safety remain unproven. Required remaining work:
    reversible on-device trial; prove restoration of the original driver.
 4. Validate suspend/resume, power behavior, and the physical test waveform;
    establish any additional ioctl behavior required by the native recorder.
-5. Reconstruct the provider's channel/script loading and interrupt handling
-   for a fully source-built acquisition stack. The public NXP kernel remains
-   incomplete for the board even after this ADC component.
+5. Qualify the reconstructed provider's channel/script loading and interrupts,
+   then finish its power and reset handling. The public NXP kernel remains
+   incomplete for the board even after these acquisition components.
+
+When built with `CONFIG_DREEM_EEG_SDMA`, the adapter additionally imports
+`dreem_sdma_status()` from that provider. It checks for faults around waits,
+before copying samples, and before open/start/test-signal operations. Faults
+propagate to the caller and shut down an already initialized ADC. Seven new
+compiled ARM cases exercise these paths, for 71 cases in that configuration;
+the 64 stock-interface cases still pass with the option absent.

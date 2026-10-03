@@ -23,11 +23,13 @@ exactly, and an independent raw-sample decoder matches the recorder's ARM
 conversion routine byte-for-byte on 8,198 synthetic records. These are useful
 reconstructed components, not the complete original source.
 
-Independent SDMA provider primitives now construct the channel context and
-handle producer-counter progress. Their native and ARM builds match 399 stock
-context/progress cases and add bounded handling of counter jumps. They compile
-with the matched Linux headers, but DMA allocation, loading, interrupt wiring,
-and power management remain to be integrated. See [DMA findings](sdma-findings.md).
+Independent SDMA primitives construct the channel context and handle producer
+progress; their native and ARM builds match 399 stock cases. They are now
+integrated into an [experimental Linux provider](sdma-provider.md), which links
+into a complete NXP kernel build and passes 64 compiled ARM cases. The provider
+implements checked allocation, bounded loading, initialization, and IRQ wiring.
+Runtime activation is disabled by default; power management and physical
+qualification remain unfinished. See [DMA findings](sdma-findings.md).
 
 The SDMA-path ADC initializer is also reconstructed in C. Its host and ARM
 builds match the original kernel's modeled I/O traces in eight scenarios,
@@ -50,7 +52,8 @@ functions to the stock kernel's real SDMA exports. It builds against the matched
 NXP headers, reproduces the three shared-object CRCs, and matches all 42 stock
 imports. Its compiled interfaces and lifecycle paths pass 64 emulated cases,
 including resource cleanup and modeled PM reference accounting. It is not loaded
-or qualified on the headset; full SDMA source reconstruction is still pending.
+or qualified on the headset. A second build against the reconstructed provider
+matches all 43 imports and passes 71 cases, including provider-fault shutdown.
 
 The adapter also reconstructs the stock internal test-signal command. Three
 ordered-I/O comparisons match the stock ARM routine, and faults at all ten SPI

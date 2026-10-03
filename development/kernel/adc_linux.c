@@ -28,6 +28,12 @@ extern u8 *sdma_ads_user_buffer;
 extern int sdma_queue_head;
 extern struct semaphore ads_data_sem;
 
+#ifdef CONFIG_DREEM_EEG_SDMA
+extern int dreem_sdma_status(void);
+#else
+static int dreem_sdma_status(void) { return 0; }
+#endif
+
 static bool sdma_hardware_confirmed;
 module_param(sdma_hardware_confirmed, bool, 0400);
 MODULE_PARM_DESC(sdma_hardware_confirmed,
@@ -70,6 +76,9 @@ static int adc_wait(struct dreem_adc *adc)
 	if (adc->io_error)
 		return adc->io_error;
 	for (attempt = 0; attempt < 10; ++attempt) {
+		int provider_error = dreem_sdma_status();
+		if (provider_error)
+			return adc->io_error = provider_error;
 		if (atomic_read(&adc->detached) || atomic_read(&adc->cancelled))
 			return adc->io_error = -ESHUTDOWN;
 		if (signal_pending(current))
@@ -77,10 +86,10 @@ static int adc_wait(struct dreem_adc *adc)
 		if (adc->nonblock) {
 			if (down_trylock(&ads_data_sem))
 				return adc->io_error = -EAGAIN;
-			return 0;
+			return adc->io_error = dreem_sdma_status();
 		}
 		if (!down_timeout(&ads_data_sem, msecs_to_jiffies(100)))
-			return 0;
+			return adc->io_error = dreem_sdma_status();
 	}
 	return adc->io_error = -ETIMEDOUT;
 }
@@ -179,6 +188,9 @@ static int adc_open(struct inode *inode, struct file *file)
 		ret = -EBUSY;
 		goto out;
 	}
+	ret = dreem_sdma_status();
+	if (ret)
+		goto out;
 	adc->state.ring = (u8 *)READ_ONCE(sdma_ads_user_buffer);
 	if (!adc->state.ring) {
 		ret = -EAGAIN;
@@ -241,6 +253,11 @@ static ssize_t adc_read(struct file *file, char __user *buffer, size_t size, lof
 		ret = -EPIPE;
 		goto out;
 	}
+	ret = dreem_sdma_status();
+	if (ret) {
+		adc_shutdown(adc);
+		goto out;
+	}
 	if (!adc->pending) {
 		adc->io_error = 0;
 		adc->nonblock = file->f_flags & O_NONBLOCK;
@@ -249,9 +266,16 @@ static ssize_t adc_read(struct file *file, char __user *buffer, size_t size, lof
 		if (ret != 16) {
 			if (adc->io_error)
 				ret = adc->io_error;
+			if (dreem_sdma_status())
+				adc_shutdown(adc);
 			goto out;
 		}
 		adc->pending = true;
+	}
+	ret = dreem_sdma_status();
+	if (ret) {
+		adc_shutdown(adc);
+		goto out;
 	}
 	if (copy_to_user(buffer, adc->pending_record, 16)) {
 		ret = -EFAULT; /* Retain this frame for the next successful copy. */
@@ -287,6 +311,13 @@ static long adc_ioctl(struct file *file, unsigned int command, unsigned long arg
 	if ((command == 1 || command == 5) && adc->running) {
 		ret = -EBUSY;
 		goto out;
+	}
+	if (command == 1 || command == 5) {
+		ret = dreem_sdma_status();
+		if (ret) {
+			adc_shutdown(adc);
+			goto out;
+		}
 	}
 	adc->io_error = 0;
 	if (command != 4) {

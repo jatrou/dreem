@@ -51,6 +51,14 @@ reconstruct and verify the observed kernel channel-context and interrupt
 progress behavior. Original vendor code, recovered assembly, and compiled
 firmware are not included in these files.
 
+`development/build_sdma_kernel.py` and `development/verify_sdma_provider.py`
+use GPL-2.0-only. The overlay script `development/apply_sdma_overlay.py` uses
+GPL-2.0-or-later and retains small matching excerpts from NXP's `imx-sdma.c`,
+copyright 2010 Sascha Hauer/Pengutronix and 2004-2016 Freescale Semiconductor.
+The upstream file retains its notice in the generated private source tree.
+The complete upstream source, reference-manual PDF, and vendor firmware are
+external inputs, not bundled by these build/verification tools.
+
 ## Upstream source snapshots
 
 The files under `third-party/source-snapshots/` are attributed snapshots of these upstream repositories:

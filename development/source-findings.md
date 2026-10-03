@@ -172,6 +172,9 @@ These fixes are in reconstructed source only, not the installed kernel.
 The [Linux research adapter](kernel-integration.md) builds and links these
 operations to the reviewed stock SDMA exports; its interface and compiled-code
 verification do not yet establish device-side compatibility.
+An [independent SDMA provider](sdma-provider.md) now supplies those interfaces
+in a linked NXP kernel build. It remains experimental, with power management,
+the other board modifications, and device-side qualification unfinished.
 
 ## Existing sensor interfaces
 
