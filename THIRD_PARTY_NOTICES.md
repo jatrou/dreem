@@ -110,6 +110,14 @@ The original cleanup verifier reads its instructions only from the privately
 supplied executable. See [optical lifecycle findings](development/optical-lifecycle.md)
 for primary documentation, identity limits and verification boundaries.
 
+`development/verify_sensor_ownership.py` uses Apache-2.0. It independently
+models thread/system-service boundaries and checks selected instructions loaded
+only from a privately supplied executable. Optional startup-script checks pin
+private inputs underlying a manual control-flow review. No original instructions,
+scripts, decompiler output or private recordings are distributed. See
+[sensor ownership findings](development/sensor-ownership.md) for the source
+boundaries and unqualified physical integration.
+
 `development/optical_quality.c` and `tests/test_optical_quality.py` also use
 Apache-2.0. They independently implement file decoding, elementary statistics
 and synthetic checks, with no extracted vendor instructions, decompiler output

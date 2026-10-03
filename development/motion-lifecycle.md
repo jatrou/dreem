@@ -56,6 +56,12 @@ establish exclusive ownership. No function opens/closes a device, stops
 `nano_core`, takes its locks or configures a service. Never use this interface
 alongside the existing owner of that same sensor.
 
+The [ownership investigation](sensor-ownership.md) verifies that record-stop
+status and cleared thread flags do not establish this prerequisite. It also
+replays the original motion cleanup: a software-reset request followed by close,
+without reset polling or readback. Process retirement and confirmed chip state
+are separate integration requirements.
+
 The explicit profile supports six requested rates (10, 50, 100, 200, 400 and
 800 samples/second), three ranges (±2, ±4 and ±8 g), and normal or high-resolution
 mode. High-resolution mode retains the default ODR/50 low-pass selection;

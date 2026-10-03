@@ -267,6 +267,14 @@ the legacy proximity register against Maxim's original datasheet. Sensor
 ownership, physical FIFO recovery and device qualification remain open; the
 existing manager has not been patched.
 
+The [sensor ownership review](sensor-ownership.md) now verifies record-stop and
+sensor cleanup against 49 isolated original-ARM cases. Normal record stop
+attempts background optical restart; several failed-join paths discard flags
+before retirement is established. A separate review of four hash-pinned stock
+control scripts finds supervision that can restart the core. These findings
+rule out recording-idle/stop status as an exclusive-owner gate; a physical
+handoff and the live supervisor configuration remain unqualified.
+
 ST supplies a [platform-independent LIS2HH12 driver with source](https://github.com/STMicroelectronics/lis2hh12-pid)
 under BSD-3-Clause. Its [datasheet](https://www.st.com/resource/en/datasheet/lis2hh12.pdf)
 confirms the identity register. Other primary references are

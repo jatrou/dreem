@@ -28,6 +28,12 @@ electrical compatibility belong to the integrating process; ordinary I2C address
 selection does not establish an exclusive lease. Never call this alongside
 the vendor optical manager or reassign its descriptor during an operation.
 
+The [ownership investigation](sensor-ownership.md) verifies that normal record
+stop attempts background optical restart, while failed optical joins can discard
+thread flags and the saved descriptor. Recording idle and a later successful
+stop therefore do not establish the required ownership. The archived supervisor
+also needs to be accounted for before any replacement starts.
+
 Start is explicitly destructive: it resets the sensor and discards queued data
 and partial-frame state. It checks the reported ID before any writes, clears
 old status, requests reset, and polls the reset bit at most twenty times with

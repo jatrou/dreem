@@ -87,6 +87,12 @@ combinations and transfer failures. Original ARM replay independently verifies
 the recorder's startup sequence and reproduces six false-success paths.
 Exclusive owner integration and physical sensor qualification remain open.
 
+The [sensor ownership investigation](sensor-ownership.md) now verifies why
+recording idle is insufficient for that integration: normal record stop attempts
+background optical restart, and failed joins can discard retirement bookkeeping.
+Forty-nine isolated original-ARM cases and a separate review of four archived
+control scripts define the remaining ownership and supervision requirements.
+
 The [optical decoder and checked I2C transport](sensor-transport.md) add an
 editable basis for sensor integrations. The decoder matches 4,193 original ARM
 cases on host and ARM builds. The transport passes 137 scenarios per build,
@@ -244,6 +250,10 @@ The allowlist also includes the separate EEG DMA program and its startup
 loader, the old acquisition utility, and two additional board DTBs. The old
 utility requests a different record size from the shipped driver; do not run
 it as a current acquisition example.
+
+Four archived core/watchdog control scripts are also allowlisted as private
+inputs for the [sensor ownership review](sensor-ownership.md). Inspection does
+not execute them or establish the modified headset's current service state.
 
 ### Recover editable EEG DMA assembly
 
