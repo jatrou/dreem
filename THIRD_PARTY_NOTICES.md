@@ -46,6 +46,17 @@ instructions, decompilation, private peer addresses or firmware image. Ghidra an
 overrides do not grant rights to publish the generated vendor decompilation.
 See [Bluetooth ownership findings](development/bluetooth-policy.md).
 
+`development/bluetooth_peer_filter.c`, `development/build_bluetooth_peer_overlay.py`,
+`development/verify_bluetooth_peer_overlay.py`, `tests/bluetooth_overlay_loader.c`,
+`tests/bluetooth_peer_filter_harness.c` and `tests/test_bluetooth_peer_overlay.py`
+are new Apache-2.0 source, copyright 2026 Dreem research contributors. They contain
+independent filter/build/test logic and observed interface addresses, with no
+extracted vendor instructions or decompilation. The builder's private patched
+core still contains vendor firmware; this source license does not grant rights
+to redistribute that output. Runtime libraries used for the independent loader
+fixtures retain their own terms and are not bundled. See
+[overlay scope and qualification](development/bluetooth-peer-overlay.md).
+
 ## Existing file streamer repair
 
 `development/repair_streamer_poll.py`, `tests/streamer_poll_harness.c` and

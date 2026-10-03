@@ -126,7 +126,9 @@ The [independent GATT capture client](bluetooth-capture.md) now builds its compl
 dependency set from public source and passes host/ARM packet-exchange tests.
 The [original core's Bluetooth policy](bluetooth-policy.md) now identifies its
 single-peer removal path and recording-related controller power transitions.
-Those ownership rules need explicit integration changes for an additional sensor.
+The [private peer overlay](bluetooth-peer-overlay.md) implements the first of
+those integration changes by separating designated sensor addresses at the
+original connection call sites. Controller power coordination remains open.
 Device-side checks of controller capabilities, existing connection ownership,
 recording fidelity and resource use remain. The existing UART2 Bluetooth link
 should remain under its current owner. Wired expansion

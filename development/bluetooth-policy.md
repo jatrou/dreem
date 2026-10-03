@@ -140,9 +140,12 @@ handling recording, button and timeout events, while preserving deliberate
 shutdown and recovery behavior. These requirements apply whether the sensor
 uses a raw ATT socket or BlueZ D-Bus.
 
-The next integration work must implement and verify those owner changes against
-the existing companion and recorder paths, then qualify real controller
-capabilities, recording fidelity and power use. An external radio or wired
+The [peer-separation overlay](bluetooth-peer-overlay.md) now implements the
+classification at the two original connection call sites, with original-ARM
+callback checks and separate executable-loader fixtures. It creates a private
+candidate without installing or starting it. Controller power coordination
+remains, followed by qualification of real controller capabilities, recording
+fidelity and power use. An external radio or wired
 sensor is another hardware route, but would require physical interface and power
-verification. No patched vendor executable or on-device handoff is supplied by
-this analysis.
+verification. No vendor executable is bundled in the repository, and no on-device
+handoff has been qualified.

@@ -32,7 +32,10 @@ the physical recorder remains unqualified. The
 explains two integration constraints: a single peer slot with automatic removal
 of another peer, and recording-related controller power changes. The recovered
 event switch and 78 original-ARM cases identify the owner paths that need to
-change for a cooperative sensor integration.
+change for a cooperative sensor integration. A
+[private peer-separation overlay](bluetooth-peer-overlay.md) now implements the
+address filter at two original call sites and passes connected ARM callback
+tests. Controller power coordination and native qualification remain open.
 
 The [WM8960 audio codec](audio-findings.md) now has a source-match recipe:
 four groups of changes to public NXP source reproduce all 21 emitted functions,

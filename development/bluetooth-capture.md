@@ -100,6 +100,9 @@ The [original core policy](bluetooth-policy.md) now shows specific obstacles:
 its D-Bus callbacks track one peer and attempt removal of another, while several
 recording-related events power the controller off. The capture client does not
 change those policies and is not yet a cooperative on-device integration.
+The separate [private peer overlay](bluetooth-peer-overlay.md) now implements
+sensor-address separation in the original callbacks. Recording-related radio
+power changes still require coordination before a continuous sensor session.
 
 Discovery requires exactly one matching characteristic across matching services.
 Reads require the read property. Subscription accepts notification or indication
