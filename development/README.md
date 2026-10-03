@@ -80,6 +80,12 @@ native `accelerometer.data` files and reports vector/axis variation without
 accessing the sensor bus. Six feature tests pass on host and ARM emulation;
 device-side timing and recording-fidelity checks remain.
 
+The [recording-event monitor](algo-findings.md) decodes `algo.data`, including
+motion/optical health and recovery markers. Its host and ARM builds match all
+28 recognized event formats in the original writer/replay reader. It preserves
+raw counters and clears health assumptions at recovery/counter discontinuities;
+cross-file sample alignment remains unfinished.
+
 Independent SDMA primitives construct the channel context and handle producer
 progress; their native and ARM builds match 399 stock cases. They are now
 integrated into an [experimental Linux provider](sdma-provider.md), which links
@@ -324,7 +330,8 @@ sh development/build.sh
 /private/work/venv/bin/python -m unittest \
   tests.test_firmware_development tests.test_kernel_exports \
   tests.test_compare_exports tests.test_sdma_disassemble \
-  tests.test_eeg_samples tests.test_eeg_quality tests.test_motion_quality -v
+  tests.test_eeg_samples tests.test_eeg_quality tests.test_motion_quality \
+  tests.test_algo_health -v
 ```
 
 The suite covers malformed/truncated input, archive link and duplicate rejection,

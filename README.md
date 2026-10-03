@@ -2,7 +2,8 @@
 
 > **Feature-development work, October 3, 2026:** the [development toolkit](development/README.md)
 > provides reproducible firmware/source analysis and tested independent ARM
-> EEG and [motion monitors](development/motion-findings.md). Kernel config and symbols are recovered; the full
+> EEG, [motion](development/motion-findings.md), and
+> [sensor-health monitors](development/algo-findings.md). Kernel config and symbols are recovered; the full
 > vendor application source is still unavailable. Existing operational records
 > document later root recovery, while this branch's new tests are offline.
 > The recovery narrative below is a historical snapshot and its old access

@@ -74,6 +74,11 @@ This bounded search does not establish that no private or historical copy exists
 Public component sources, binary comparisons and independent replacements remain
 the available route to adding features without the original application source.
 
+The [recording-event reconstruction](algo-findings.md) adds a verified parser
+for the 28 recognized `algo.data` formats and a native sensor-health monitor.
+Recovery changes the recorder counter independently of native EEG row writes;
+the monitor preserves counters without assuming cross-file or wall-clock alignment.
+
 ## Kernel export verification
 
 Recovered 7,041 exported symbol CRCs from `__kcrctab_*`, classified against

@@ -46,6 +46,16 @@ extracted vendor instructions or decompiler output. The optional comparison
 requires a privately supplied firmware executable. See
 [motion findings](development/motion-findings.md) for provenance and limits.
 
+## Recording-event reconstruction
+
+`development/algo_events.c`, `development/algo_events.h`,
+`development/algo_health.c`, `development/verify_algo_events.py`, and
+`tests/test_algo_health.py` use Apache-2.0. They are independent implementations
+of observed event framing, health interpretation and file handling, with
+synthetic verification code. They contain no extracted vendor instructions or
+decompiler output. Optional comparisons require a privately supplied executable;
+see [recording-event findings](development/algo-findings.md).
+
 ## ADC driver reconstruction
 
 `development/ads129x_init.c`, `development/ads129x_init.h`,
