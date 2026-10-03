@@ -70,10 +70,11 @@ forced-write helper with modeled cache/bus operations and separate lock checks.
 The probe check stops after observing mutex initialization, before device-tree
 and hardware setup; it does not qualify the full SAI probe.
 
-The 305 clock, 50 board-lifetime, 43 identity, 76 connected EEG, 617 bus-frequency
+The 58 PCM, 305 clock, 50 board-lifetime, 43 identity, 76 connected EEG, 617 bus-frequency
 and 58 DDR preparation cases also pass on the same kernel. All 44 ADC imports
-match its real exports. Disabled SAI and board objects are byte-identical to the
-clean NXP baseline. [Board integration](audio-lifetime.md) owns the kernel/board
+match its real exports. The original SAI milestone's disabled SAI and board
+objects are byte-identical to the clean NXP baseline.
+[Board integration](audio-lifetime.md) owns the kernel/board
 hashes; [clock verification](audio-clocking.md) owns the codec/SAI/regmap hashes.
 Private manifests pin build inputs, artifacts and verifier dependencies.
 
@@ -86,6 +87,8 @@ unqualified. The test tracks the driver's additional PM references separately
 from references held by callers; it does not execute runtime-PM internals.
 
 SAI parameter/trigger register-error handling and master-clock ownership still
-need work, as do packed 20-bit PCM DMA and codec bias/power cleanup. Fixing
+need work, as do actual PCM sample transfer and codec bias/power cleanup.
+[Cyclic DMA preparation](pcm-dma.md) accepts packed 20-bit samples and now has
+checked bounds and context-failure cleanup. Fixing
 startup does not establish complete playback or capture. No kernel was flashed;
 the known headset SSH endpoint timed out during this work.

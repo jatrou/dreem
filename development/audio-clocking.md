@@ -121,27 +121,29 @@ ignored explicit slot width. The matching reference codec is still compared
 against the saved firmware.
 
 The complete kernel and ADC module build, and all 44 ADC imports match the
-rebuilt kernel. The existing 50 board-lifetime, 43 identity, 76 connected EEG,
-617 bus-frequency and 58 DDR preparation checks also pass on this build. With
-the audio option disabled, board/codec/SAI objects are byte-identical to the
-existing NXP baseline. The disabled regmap object is byte-identical to a clean
+rebuilt kernel. The 58 PCM, 58 SAI lifetime, 50 board-lifetime, 43 identity,
+76 connected EEG, 617 bus-frequency and 58 DDR preparation checks also pass on
+this build. The earlier SAI milestone verified that, with the audio option
+disabled, board/codec/SAI objects are byte-identical to the existing NXP baseline.
+Its disabled regmap object is byte-identical to a clean
 NXP control compiled at the same source path; its warning strings embed
 `__FILE__`, so a different source-directory path changes the full object.
 
 The [board integration record](audio-lifetime.md) owns the kernel and board
 hashes. The enabled codec SHA-256 is
-`b439217d4322464975034ea50a42777c1b67067fda7cd1f6617ba8c1f1cb839d`;
-SAI is `a333e1782cd66f19e26d7d41235a3aa09a38dc8959c406d6ec60b9aa8e27662b`;
-regmap is `d889ec856acd62fe12fda9043a2ad9ab6b0370538d7307836a23b844e3a8c1a8`.
+`5ce5fc4d3d30831fa048fb97f6758ea98564194ca52b134f5cd7828d9ed0f840`;
+SAI is `11753a7c76bed9a9cb3fe1337818e542c1e45cbf328ef83b74a77c2c5275b5af`;
+regmap is `59c939288e154b6e1950367791a082514fa2960b7354217212edd69684ebb5ad`.
 Private manifests pin the source inputs, artifacts and verifier dependencies.
 
 [SAI startup and shutdown](sai-lifetime.md) now have separate resource rollback
-and connected callback tests on this kernel. ALSA negotiation/unwind internals,
-PCM DMA packing and transfer, SAI parameter/trigger register-error handling,
-power management, concurrent scheduling, physical clock
-timing, analogue output and recording fidelity remain unqualified. In particular,
-the packed 20-bit PCM format needs DMA-path work: the default PCM conversion
-requests a three-byte bus width, which the public SDMA descriptor preparation
-rejects. These callback tests do not establish complete `aplay`/`arecord` support.
+and connected callback tests on this kernel. The [PCM cyclic-path verification](pcm-dma.md)
+corrects this record's earlier packed-20 claim: PCM requests a three-byte bus
+width, and cyclic SDMA preparation accepts it. The rejection previously cited
+belongs to a different scatter/gather path. Actual sample packing/transfer,
+ALSA negotiation/unwind internals, SAI parameter/trigger register-error handling,
+power management, concurrent scheduling, physical clock timing, analogue output
+and recording fidelity remain unqualified. These callback tests do not establish
+complete `aplay`/`arecord` support.
 No kernel was flashed;
 the known headset SSH endpoint timed out during this work.

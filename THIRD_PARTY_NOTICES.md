@@ -141,6 +141,13 @@ and ownership repairs by Dreem research contributors (2026).
 `development/verify_sai_lifetime.py` is new GPL-2.0-only verification code.
 See [SAI lifecycle verification](development/sai-lifetime.md) for its boundaries.
 
+`development/apply_pcm_audio_overlay.py` uses GPL-2.0-or-later and adapts public
+NXP `imx-sdma.c` (Sascha Hauer/Pengutronix, 2010; Freescale, 2004-2016) and
+`imx-pcm-dma.c` (Sascha Hauer, 2009). Generated source retains those notices.
+The bounds, context-failure cleanup and period-limit changes are by Dreem
+research contributors (2026). `development/verify_pcm_dma.py` is new GPL-2.0-only
+verification code. See [PCM cyclic verification](development/pcm-dma.md).
+
 ## Hardware identity access
 
 `development/apply_hardware_overlay.py` uses GPL-2.0-only and contains small

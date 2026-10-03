@@ -39,9 +39,10 @@ def linked_object(module):
     # With lockdep disabled, mutex_init still takes the address of an empty
     # lock-class key in zero-sized BSS. Its relocation needs a checked base.
     sections = {n: None for n in ('.text', '.init.text', '.exit.text', '.rodata', '.data', '.bss', '.initcall6.init')
-                if module.elf.get_section_by_name(n)['sh_size'] or
+                if module.elf.get_section_by_name(n) is not None and
+                (module.elf.get_section_by_name(n)['sh_size'] or
                 any(s['st_shndx'] == module.elf.get_section_index(n) and
-                    s['st_info']['type'] == 'STT_OBJECT' for s in table)}
+                    s['st_info']['type'] == 'STT_OBJECT' for s in table))}
     return Object(module.binary, functions=functions, sections=sections, anchors=anchors)
 
 

@@ -194,7 +194,8 @@ def compare(obj, image):
             raise ValueError(f'section bytes differ: {name}+{first:#x}')
         sections[name] = {'bytes': len(actual), 'relocations': len(relocs), 'linked_sha256': sha(actual)}
     functions = {n: obj.named[n]['st_size'] for n in sorted(obj.function_names)}
-    require(sum(functions.values()) == sum(sections[n]['bytes'] for n in ('.text', '.init.text', '.exit.text')),
+    require(sum(functions.values()) == sum(sections.get(n, {}).get('bytes', 0)
+                                          for n in ('.text', '.init.text', '.exit.text')),
             'executable coverage differs from all function sizes')
     return {'sections': sections, 'functions': functions, 'validated_strings': len(strings),
             'bss_layout_bytes': obj.elf.get_section_by_name('.bss')['sh_size'],

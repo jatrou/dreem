@@ -8,8 +8,8 @@ the original defects are acceptable or that physical audio is qualified.
 ## Selection and interface
 
 `build_sdma_kernel.py --wm8960-board --hardware-version` selects
-`CONFIG_DREEM_WM8960=y`, selecting the board, repaired codec, explicit SAI slots
-and checked forced-write helper together.
+`CONFIG_DREEM_WM8960=y`, selecting the board, repaired codec, explicit SAI slots,
+checked forced-write helper and [PCM cyclic-path repairs](pcm-dma.md) together.
 The option defaults to disabled and requires built-in
 `SND_SOC_IMX_WM8960` and the checked hardware-identity API. When selected, this
 board driver is active at probe; unlike the experimental SDMA and bus-frequency
@@ -97,24 +97,26 @@ execute ALSA registration internals or a concurrent scheduler.
 
 On this same kernel, the hardware-identity verifier passes 43 cases, the connected
 EEG pipeline 76, bus-frequency checks 617 and DDR preparation 58. With the audio
-option disabled, the complete board object is byte-identical to the NXP baseline,
+option disabled, the earlier SAI milestone verified that the complete board
+object is byte-identical to the NXP baseline,
 SHA-256 `c77b315cd7089622dbb916d55bf2c5a36f16a42c555a836f3d469423d4596c50`.
 
 The enabled kernel SHA-256 is
-`d6454f4a87aad7977ff2c8da7482fe5cc722428fd073b4619d90eabca776b34d`;
+`e8d0bc8a9a71cd6048a893012bf576d381b898b504feb6601c8f64b14d2181ee`;
 the board object SHA-256 is
-`105416591eb07d2fc057e74db80b5d9849757a3b02dfe096bb90dcbb1315fb26`.
+`72a0d17be721401c056b44d9a10c821a73fa947390b687a34885c0806a34bc24`.
 Private build/verification manifests pin the exact sources, inputs and artifacts.
 This build also includes the [connected codec/SAI clock and retry repairs](audio-clocking.md),
-and [SAI startup/close repairs](sai-lifetime.md), whose verification is recorded
-separately.
+the [SAI startup/close repairs](sai-lifetime.md), and
+[PCM cyclic-path repairs](pcm-dma.md), whose verification is recorded separately.
 
 ## Remaining work
 
 Board stream startup now publishes state only after clock acquisition succeeds.
 The codec clock and failure-state repairs are covered by the linked clock
 verifier; SAI startup/shutdown now has checked rollback and connected tests.
-Parameter/trigger error handling, PCM DMA packing, physical SAI/codec interaction,
+PCM configuration and descriptor preparation now have connected checks.
+Parameter/trigger error handling, actual PCM sample transfer, physical SAI/codec interaction,
 power management, independent codec/controller unbind, audible output and
 recording fidelity remain to be qualified. The old ASoC core does not make
 independent component removal safe merely because this board's own teardown
