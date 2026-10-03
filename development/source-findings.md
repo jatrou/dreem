@@ -93,9 +93,11 @@ counter rules, suppressed automatic lowering, and the distinct Femto high-rate
 clock sequence. It builds into the research kernel and is compared against
 the saved ARM routines. It also supplies the original DDR character-device
 interface. Separate relocation checks match the DDR3 assembly, both surrounding
-C routines, and all nine static settings tables to public NXP source. Boot-time
-register values, inherited initializer failure paths, and physical execution
-remain unverified. See the linked findings for the matches and remaining hazards.
+C routines, and all nine static settings tables to public NXP source. The active
+research DDR3 initializer repairs inherited capacity and failure-handling bugs;
+compiled checks also cover the full probe's readiness and rollback. Actual
+boot-time register values and physical execution remain unverified. See the
+linked findings for source matches, modeled checks and remaining boundaries.
 
 ## EEG device interface
 

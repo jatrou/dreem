@@ -27,8 +27,10 @@ It now includes the recorder's `/dev/dreem_ddr` control interface, with 47
 compiled checks for command behavior and registration cleanup. The 1,764-byte
 DDR3 transition routine matches public NXP assembly exactly after applying its
 one declared relocation. The two surrounding C routines and nine static settings
-tables also match. Their inherited initializer hazards and hardware prerequisites
-remain unresolved; source matching does not establish runtime safety.
+tables also match. The active research path now repairs the initializer's
+capacity/pointer arithmetic and allocation/mapping failures, and defers probe
+readiness until preparation succeeds. Its 58 compiled ARM checks cover rollback,
+retry and stock C-wrapper comparisons. Physical qualification remains unfinished.
 
 The EEG DMA program can now be recovered into assembly that reassembles
 exactly, and an independent raw-sample decoder matches the recorder's ARM

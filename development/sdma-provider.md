@@ -226,7 +226,9 @@ this build as an everyday headset kernel. An optional
 [bus-frequency overlay](busfreq-findings.md) reconstructs the Femto clock policy
 and its high-rate sequence, including the recorder's DDR control interface.
 The DDR3 transition assembly, C preparation routines, and static settings match
-public NXP source. DDR initialization hazards and hardware behavior, audio, and
-other board modifications still need repair, reconstruction, or qualification.
+public NXP source. The active DDR3 path now checks reservation/allocation/mapping
+failures and delays probe readiness until setup succeeds, with modeled rollback
+and retry. DDR hardware behavior, audio, and other board modifications still need
+reconstruction or qualification.
 Device-side qualification still needs verified recovery, hardware identity,
 recording fidelity, latency, power measurements, and restoration proof.

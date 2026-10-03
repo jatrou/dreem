@@ -107,9 +107,10 @@ was run on hardware.
 
 ### C preparation routines and settings
 
-The same pinned NXP release also supplies the matching
+The same pinned NXP release supplies the matching original
 [`arch/arm/mach-imx/busfreq_ddr3.c`](https://github.com/nxp-imx/linux-imx/blob/30278abfe0977b1d2f065271ce1ea23c0e2d1b6e/arch/arm/mach-imx/busfreq_ddr3.c)
-source for the surrounding single-core DDR3 preparation routines:
+source for the surrounding single-core DDR3 preparation routines. The source
+comparison uses a clean public build, before the research repairs below:
 
 | Routine | Saved address | Bytes | Declared relocations |
 | --- | --- | ---: | ---: |
@@ -141,8 +142,8 @@ the public implementation; it does not validate its hardware prerequisites.
 
 ### Inherited initialization hazards
 
-Static inspection of the matched C and ARM instructions exposes failure paths
-that remain unfixed in the research build:
+Static inspection of the matched C and ARM instructions exposes these failure
+paths in the saved firmware and unmodified NXP initializer:
 
 - Failed MMDC/IOMUX mappings only warn and execution continues. The 96-byte
   settings allocation is unchecked before copying into it. Device-tree node
@@ -158,9 +159,44 @@ that remain unfixed in the research build:
   check can accept an undersized reservation. This arithmetic finding does not
   establish that the actual headset's reservation is undersized or corrupted.
 
-The source match narrows reconstruction work, but failure handling, reservation
-size/alignment, physical DDR state and timing, call-site locking, and LPDDR paths
-still need qualification before this kernel can be used on a headset.
+The saved device tree reserves **4,096 bytes** at physical `0x00904000` for
+`fsl,ddr-lpm-sram`, which exceeds that original 2,084-byte span. The capacity bug
+therefore does not itself demonstrate corruption on this headset. The saved
+reservation is also eight-byte aligned; current device state has not been read.
+
+### Checked research initialization
+
+With the experimental Femto policy active, `kernel/ddr_prepare_dreem.inc`
+replaces the i.MX6ULL DDR3 preparation path. It checks the linked code span,
+source/destination alignment, address arithmetic, normal rate, and reservation
+capacity before allocation, register mapping, or copying executable code.
+It checks both device-tree lookups, both mappings, and the settings allocation.
+Failed operations release acquired resources without publishing partial DDR
+state. Node references are put after mapping; the pinned static-DT configuration
+compiles those reference operations away.
+
+The replacement uses explicit byte offsets and array-element counts. Its DDR
+table begins at offset **1,812** and all code, headers and settings fit within
+**1,916 bytes**. It initializes padding, headers and tables, copies the same
+assembly with `fncpy`, and publishes the complete preparation afterward. The
+fixed MMDC command values and boot-time reads retain the matched source's
+behavior. It does not execute a frequency transition during preparation.
+Repeated preparation returns `EBUSY` without acquiring more resources.
+
+The original probe also published readiness, sysfs, notifiers and delayed work
+before DDR setup had succeeded. The overlay defers those steps on the active
+Femto path. `kernel/busfreq_probe_dreem.inc` checks notifier and sysfs creation,
+publishes readiness under the bus-frequency mutex, and withdraws it before
+unlocking if publication fails. On failure it unregisters completed notifier
+registrations, drains delayed work, and discards prepared DDR resources in that
+order. A subsequent probe can retry. A second successful probe is rejected;
+this is not a runtime teardown or hot-unbind implementation.
+
+The C transition wrapper itself remains the public implementation. The inactive
+or wrong-board path keeps NXP initialization, including its known limitations.
+The repairs described here concern DDR3 on i.MX6ULL; early boot SRAM mapping,
+LPDDR initialization, physical memory state and timing, scheduling races, and
+general runtime teardown are not qualified by these checks.
 
 ## Build and activation boundaries
 
@@ -192,8 +228,13 @@ the optional `--busfreq-policy` flag:
 
 /private/work/venv/bin/python development/verify_ddr_c_sources.py \
   /private/work/inspection/kernel.elf \
+  /private/work/kernel-build/vmlinux \
+  /private/work/kernel-build/arch/arm/mach-imx/busfreq_ddr3.o
+
+/private/work/venv/bin/python development/verify_ddr_preparation.py \
+  /private/work/inspection/kernel.elf \
   /private/work/femto-clock-build/kernel/vmlinux \
-  /private/work/femto-clock-build/kernel/arch/arm/mach-imx/busfreq_ddr3.o
+  /private/work/femto-clock-build/kernel/arch/arm/mach-imx/busfreq-imx.o
 ```
 
 The option adds `CONFIG_DREEM_BUSFREQ=y`, but **runtime activation is still off
@@ -229,15 +270,29 @@ An explicit expected call sequence checks the DDR3 high transition. The
 unmodified NXP kernel must differ on both ordinary-request policy and high
 transition ordering, so a no-op overlay cannot pass those negative controls.
 
-The option-disabled object also compiles. The integrated acquisition pipeline
+The option-disabled clock and DDR objects also compile. The integrated acquisition pipeline
 continues to pass its 76 cases with this kernel build. `provider-build.json`
 records source/configuration and kernel, bus-frequency object, provider, and
 ADC hashes; the verification reports identify their actual binary inputs.
 
+`verify_ddr_preparation.py` executes the linked initializer, full Femto probe,
+cleanup routine and C transition wrapper in **58 cases**. It compares five
+bus modes against stock, including MMDC/IOMUX values, DLL mode, delay extraction,
+IRQ exclusion, TTBR handling and same-rate suppression. It checks an exact-size
+reservation with a guard beyond its end, invalid sizes/addresses/rate/CPU,
+mapping/allocation failures, all 23 probe clock lookups, the rate property,
+notifier/sysfs failures, duplicate initialization and retry, and retirement of
+modeled pending notification work. Three stock negative controls reproduce the
+out-of-reservation table write, code copying before a capacity check, and a
+mapping retained after failure. Duplicate local clock/attribute names are
+resolved using the actual probe object's data/BSS layout and DWARF types.
+
 The clock/DDR service bodies and CPU-rate restoration are modeled boundaries
-in the execution verifiers; the separate DDR3 assembly/C comparisons establish
-the source matches described above. Physical clock timing, boot-time DDR values,
-initializer failure handling, execution of the wrapper on hardware, voltage
-changes, real scheduling, and suspend/resume remain unverified.
+in the general clock verifier. The dedicated preparation verifier executes the
+C wrapper but models the copied assembly's transition, MMIO values, allocator,
+mapping and kernel services. The separate assembly/C comparisons establish the
+original source matches. Physical clock timing, actual boot-time DDR values,
+execution on hardware, voltage changes, real scheduling, and suspend/resume
+remain unverified.
 Actual devtmpfs/syscall behavior, other board changes, and headset recovery/runtime
 proof also remain unfinished. This does not complete the board kernel.

@@ -9,7 +9,10 @@ MODULE_PARM_DESC(dreem_busfreq, "Enable experimental Femto bus-frequency policy"
 
 static int set_high_bus_freq(int high_bus_freq);
 
-static bool dreem_busfreq_active(void)
+bool dreem_busfreq_active(void);
+void dreem_ddr_discard_settings(void);
+
+bool dreem_busfreq_active(void)
 {
 	return dreem_busfreq_enabled &&
 		of_machine_is_compatible("fsl,imx6ull-femto");

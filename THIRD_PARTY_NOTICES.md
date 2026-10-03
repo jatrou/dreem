@@ -72,7 +72,7 @@ external inputs, not bundled by these build/verification tools.
 ## Bus-frequency policy reconstruction
 
 `development/apply_busfreq_overlay.py` uses GPL-2.0-or-later and contains
-matching anchors from the public NXP `busfreq-imx.c`, copyright 2011-2016
+matching anchors from the public NXP `busfreq-imx.c` and `busfreq_ddr3.c`, copyright 2011-2016
 Freescale Semiconductor and 2017 NXP. The generated upstream file retains its
 notice. `development/kernel/busfreq_dreem.inc` uses GPL-2.0-only; its clock
 operations adapt that public driver's helpers, with independently reconstructed
@@ -80,9 +80,15 @@ Femto policy. `development/kernel/ddr_linux.inc` is independently reconstructed
 GPL-2.0-only interface code. `development/verify_busfreq.py`,
 `development/verify_ddr_control.py`, `development/verify_ddr_sources.py`,
 `development/verify_ddr_c_sources.py`, `development/arm_relocations.py`,
-and `tests/test_arm_relocations.py`
+`development/verify_ddr_preparation.py`, and `tests/test_arm_relocations.py`
 are new GPL-2.0-only verification code, copyright 2026 Dreem research
 contributors. Private stock decompilations and vendor binaries are not included.
+
+`development/kernel/ddr_prepare_dreem.inc` and
+`development/kernel/busfreq_probe_dreem.inc` use GPL-2.0-only. They adapt public
+NXP DDR preparation and probe operations, retaining attribution to Freescale
+Semiconductor (2011-2016) and NXP (2017), with new checked layout, resource
+handling and publication logic by Dreem research contributors (2026).
 
 ## Upstream source snapshots
 

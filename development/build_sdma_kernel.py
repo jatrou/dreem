@@ -48,7 +48,8 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
               here / "apply_sdma_overlay.py", Path(__file__).resolve()]
     if busfreq:
         inputs += [here / "apply_busfreq_overlay.py", here / "kernel/busfreq_dreem.inc",
-                   here / "kernel/ddr_linux.inc"]
+                   here / "kernel/ddr_linux.inc", here / "kernel/ddr_prepare_dreem.inc",
+                   here / "kernel/busfreq_probe_dreem.inc"]
     source_hashes = {str(p.relative_to(here)): sha(p) for p in inputs}
     output.mkdir(mode=0o700)
     tree, kernel, module = (output / name for name in ("source", "kernel", "module"))
