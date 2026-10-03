@@ -169,5 +169,9 @@ The research integration now supplies bounded placement, channel reservation,
 context loading, interrupt dispatch, and reader fault handling. It pins DMA
 storage after submission and refuses system sleep while enabled. Normal DMA
 quiescence/reclamation, coordinated restart, and suspend/resume remain unfinished.
+A [source-built replacement DMA program](sdma-program.md) now supplies the
+cooperative pause/acknowledgement protocol needed for that work. Its control
+allocation and first-frame behavior differ from stock; it must not be loaded
+through the current four-byte-counter trigger. Host integration remains open.
 The complete board kernel additionally needs the other Dreem-specific drivers
 and board behavior identified in [source findings](source-findings.md).

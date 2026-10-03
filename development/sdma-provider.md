@@ -6,6 +6,11 @@ The complete kernel links, and the ADC module builds against its real exports.
 This is a source-built acquisition component, **not a complete Dreem board
 kernel or a firmware image qualified for installation**.
 
+The separately developed [cooperative acquisition program](sdma-program.md)
+requires a new control allocation and host protocol. This provider still uses
+the stock script ABI; it must not load that new program until integration is
+implemented. The current sleep and buffer-retention restrictions still apply.
+
 ## Build and interfaces
 
 `build_sdma_kernel.py` requires the clean NXP revision recorded in

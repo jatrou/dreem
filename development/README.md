@@ -31,6 +31,12 @@ implements checked allocation, bounded loading, initialization, and IRQ wiring.
 Runtime activation is disabled by default; power management and physical
 qualification remain unfinished. See [DMA findings](sdma-findings.md).
 
+A [new source-built acquisition program](sdma-program.md) now implements a
+cooperative pause protocol with explicit DMA completion checks. Its 106 SDMA
+instructions assemble identically with two assemblers and pass 933 modeled
+execution cases. It uses a new padded control allocation and is not compatible
+with the current trigger; Linux integration and device qualification remain.
+
 The SDMA-path ADC initializer is also reconstructed in C. Its host and ARM
 builds match the original kernel's modeled I/O traces in eight scenarios,
 with bounded polling added for a stalled peripheral. See

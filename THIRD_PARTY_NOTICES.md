@@ -21,6 +21,15 @@ published assembler example. See his [SDMA tutorial and assembler](https://billa
 and the [GPL text](LICENSES/GPL-2.0-or-later.txt).
 The decoder implementation is copyright 2026 Dreem research contributors.
 
+`development/sdma_assemble.py` uses those same encoding definitions and is
+also GPL-2.0-or-later. The new acquisition program `development/sdma_acquire.asm`,
+its instruction model `development/sdma_program_model.py`, verifier
+`development/verify_sdma_program.py`, and `tests/test_sdma_program.py` use
+GPL-2.0-only. They are newly written source based on the documented i.MX6ULL
+instruction/functional-unit behavior and observed acquisition interface, not
+a bundled copy of Dreem's recovered program. Copyright 2026 Dreem research
+contributors. The model does not reproduce the complete SDMA hardware.
+
 The optional external assembler is Billauer's GPL-2.0-or-later tool, with
 Jonah Petri's [raw binary output variant](https://blog.petri.us/sdma-hacking/part-2.html).
 Neither the external assembler nor Dreem's DMA binary/recovered assembly is
