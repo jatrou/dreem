@@ -50,8 +50,9 @@ def cstring(data, offset):
 
 
 class Object:
-    def __init__(self, binary):
+    def __init__(self, binary, *, functions=FUNCTIONS, sections=SECTIONS, anchors=None):
         self.binary = binary
+        self.function_names, self.section_sizes = functions, sections
         self.elf = e = ELFFile(io.BytesIO(binary))
         require(e.elfclass == 32 and e.little_endian and e['e_machine'] == 'EM_ARM'
                 and e['e_type'] == 'ET_REL', 'expected ARM32 relocatable object')
@@ -60,7 +61,10 @@ class Object:
         self.symbols = list(self.table.iter_symbols())
         self.named = {s.name: s for s in self.symbols if s.name}
         require({s.name for s in self.symbols if s['st_info']['type'] == 'STT_FUNC'}
-                == FUNCTIONS, 'unexpected codec functions')
+                == functions, 'unexpected driver functions')
+        self.anchors = anchors if anchors is not None else functions | {
+            s.name for s in self.symbols if s.name.startswith(('wm8960_', 'pll_div.'))
+            or s.name in ('soc_codec_dev_wm8960', '__initcall_wm8960_i2c_driver_init6')}
         self.relocations = {}
         for section in e.iter_sections():
             if section['sh_type'] != 'SHT_REL':
@@ -69,7 +73,7 @@ class Object:
             self.relocations[section['sh_info']] = [
                 (r, section['sh_offset'] + i * section['sh_entsize'])
                 for i, r in enumerate(section.iter_relocations())]
-        for name, size in SECTIONS.items():
+        for name, size in sections.items():
             section = e.get_section_by_name(name)
             require(section is not None and (size is None or section['sh_size'] == size),
                     'unexpected section size: ' + name)
@@ -90,12 +94,11 @@ def names_in(image):
 
 def section_bases(obj, names):
     bases = {}
-    for name in SECTIONS:
+    for name in obj.section_sizes:
         index = obj.elf.get_section_index(name)
         anchors = [s for s in obj.symbols if s['st_shndx'] == index
                    and s['st_info']['type'] in ('STT_FUNC', 'STT_OBJECT')
-                   and (s.name in FUNCTIONS or s.name.startswith(('wm8960_', 'pll_div.'))
-                        or s.name in ('soc_codec_dev_wm8960', '__initcall_wm8960_i2c_driver_init6'))]
+                   and s.name in obj.anchors]
         require(anchors, 'no layout anchors: ' + name)
         choices = None
         for s in anchors:
@@ -120,7 +123,7 @@ def compare(obj, image):
         require(key not in strings or strings[key] == pointer, 'inconsistent merged string address')
         strings[key] = pointer
 
-    for name in SECTIONS:
+    for name in obj.section_sizes:
         index = obj.elf.get_section_index(name)
         section, address = obj.elf.get_section(index), bases[index]
         if name == '.bss':
@@ -190,11 +193,12 @@ def compare(obj, image):
             first = next(i for i, (a, b) in enumerate(zip(relocated, actual)) if a != b)
             raise ValueError(f'section bytes differ: {name}+{first:#x}')
         sections[name] = {'bytes': len(actual), 'relocations': len(relocs), 'linked_sha256': sha(actual)}
-    functions = {n: obj.named[n]['st_size'] for n in sorted(FUNCTIONS)}
+    functions = {n: obj.named[n]['st_size'] for n in sorted(obj.function_names)}
     require(sum(functions.values()) == sum(sections[n]['bytes'] for n in ('.text', '.init.text', '.exit.text')),
             'executable coverage differs from all function sizes')
     return {'sections': sections, 'functions': functions, 'validated_strings': len(strings),
-            'bss_layout_bytes': 4, 'compared_bytes': sum(s['bytes'] for s in sections.values())}
+            'bss_layout_bytes': obj.elf.get_section_by_name('.bss')['sh_size'],
+            'compared_bytes': sum(s['bytes'] for s in sections.values())}
 
 
 def negative_controls(obj, stock, baseline_obj):

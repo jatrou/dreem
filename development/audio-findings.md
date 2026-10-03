@@ -3,8 +3,9 @@
 The saved Dreem 4.7.11 kernel's WM8960 codec can be reproduced from public NXP
 source with four groups of changes. All **21 emitted functions** and the
 driver's constant/mutable tables match after applying real ARM relocations.
-This supplies editable codec source; it does not recover the complete audio
-board driver or qualify a replacement kernel on the headset.
+The separate board driver is now also reconstructed: all **17 emitted functions**
+and its tables match. These are editable source references, including observed
+vendor defects, not a qualified replacement kernel.
 
 The earlier [hardware inspection](../docs/dreem-2-recovery-reference.md)
 identifies WM8960 and a 19.2 MHz oscillator on the user's Dreem 2. The saved
@@ -86,10 +87,12 @@ the reference object SHA-256 is
 `8124f172a2ac39718699b8223c9e619a91add75615a708fb44f1f1adcb0cd16d`.
 Vendor binaries and decompilations remain private.
 
-## Remaining board integration
+## Board-driver source match
 
-The separate `sound/soc/fsl/imx-wm8960.c` still needs reconstruction. Static
-ARM inspection of the reviewed kernel establishes these differences:
+`wm8960_board_reference.py` reconstructs the saved board driver from
+[NXP imx-wm8960.c](https://github.com/nxp-imx/linux-imx/blob/30278abfe0977b1d2f065271ce1ea23c0e2d1b6e/sound/soc/fsl/imx-wm8960.c),
+copyright 2015-2016 Freescale Semiconductor, GPL version 2 or later. The source
+match establishes these changes:
 
 - The board probe excludes OTP hardware version zero and adds a `/dev/jack`
   character device. It accepts nonzero values, including the getter's -1
@@ -101,13 +104,87 @@ ARM inspection of the reviewed kernel establishes these differences:
   interfaces, not commands to probe on a recording headset.
 - Late probe only sets register 9, mask/value `0x40`. The five additional NXP
   jack-detection register updates are absent.
+- Both codec clock calls in `imx_hifi_hw_params` use `WM8960_SYSCLK_PLL`
+  (numeric value 1), replacing the upstream `WM8960_SYSCLK_AUTO` (2). Matching
+  function sizes did not reveal this difference; the instruction comparison did.
 - The added character-device registration occurs before the rest of the probe;
-  later error returns do not consistently unwind it. Reconstructing the board
-  driver must address publication, error cleanup, open-file lifetime and removal.
+  later error returns do not consistently unwind it. The reference deliberately
+  preserves this behavior so it can be compared with the saved binary.
 
-The matched codec is intentionally built as an isolated reference object. It
-is not yet integrated into the experimental kernel. Board-driver reconstruction,
-hardware-version handling, SAI/clock integration, power management, playback
-and recording fidelity, and physical qualification remain. A fresh connection
-to the known headset SSH endpoint timed out during this work; nothing was
-installed or flashed.
+The complete comparison covers **5,644 file-backed bytes**: 3,844 bytes of
+function code, 1,096 bytes of read-only tables, 700 bytes of initialized data,
+and the four-byte initialization pointer. It applies **308 relocations**,
+validates **58 string locations**, and verifies the **208-byte BSS layout**.
+Intersecting complete section layouts resolves duplicate names such as
+`imx_hifi_hw_params`, `card_priv`, `fops`, and `jack_ioctl` without selecting
+the unrelated AIC31xx copies. The generic relocation comparison is shared with
+the codec verifier; the original codec comparison still passes unchanged.
+
+The original NXP board object independently matches its clean baseline kernel
+(15 functions, 5,104 bytes). Five negative controls reject the unmodified board
+driver and altered command, register-mask, ioctl-callback, and hardware-version
+call behavior. As with the codec, unwind metadata and initial BSS contents are
+outside the byte comparison. `get_dreem_hardware_version` is an external call
+target in this object, not recovered source supplied by this recipe.
+
+```sh
+python3 development/build_wm8960_reference.py \
+  /private/work/linux-imx /private/work/kernel-build-gcc7/.config \
+  /private/work/wm8960-board-reference /private/toolchain/bin/arm-linux- --board
+
+/private/work/venv/bin/python development/verify_wm8960_board_sources.py \
+  /private/work/inspection/kernel.elf \
+  /private/work/wm8960-board-reference/kernel/sound/soc/fsl/imx-wm8960.o \
+  /private/work/kernel-build-gcc7/vmlinux \
+  /private/work/kernel-build-gcc7/sound/soc/fsl/imx-wm8960.o \
+  > /private/work/wm8960-board-reference/board-source-verification.json
+
+/private/work/venv/bin/python development/verify_wm8960_jack.py \
+  /private/work/inspection/kernel.elf \
+  /private/work/wm8960-board-reference/kernel/sound/soc/fsl/imx-wm8960.o \
+  > /private/work/wm8960-board-reference/jack-verification.json
+```
+
+The matched board source SHA-256 is
+`aec9b1cd05abcd665ab4891112fede85db4e9e55ea7f1dc342a5b281abd567f0`;
+the board object SHA-256 is
+`c739c7c8ecf55aeda1042ba34090216290744ca0245c6e5ca7c558a9ac18add6`.
+The `--board` build also rebuilds the codec and records both inputs/outputs.
+
+## Reproduced jack behavior and defects
+
+The bounded ARM verifier first requires the complete board source match, then
+executes the saved matching routines with synthetic kernel services. Its **79
+checks** cover active-low routing, headphone versus headset report masks,
+known/unknown commands, ignored ioctl arguments, absent-card behavior, late
+probe, early registration failures and removal. These are behavior checks,
+including tests that reproduce defects; they are not a safety qualification.
+
+- `device_create` is called before `cdev_init`/`cdev_add`.
+- A missing `cpu-dai` phandle leaves the device number, cdev reference, class,
+  node and cdev registration allocated, even though probe returns `-EINVAL`.
+- Class/device creation error pointers are not recognized by the board driver.
+  The modeled public `device_create_groups_vargs` rejects an error-pointer
+  class, but the caller ignores that returned error pointer too and continues.
+- A failed `cdev_add` removes the node/class/number but retains the initial
+  cdev reference. It does not call `kobject_put` on this failure path.
+- The hardware getter's -1 result proceeds to character-device registration.
+- Late probe returns success even if its register update fails.
+- Removal deletes the character-device resources but leaves the card pointers
+  usable by the ioctl routine. A retained file operation can still request
+  routing after removal; real devm teardown and concurrent VFS access are not
+  emulated by this test.
+
+Probe execution is intentionally bounded at the first missing audio phandle.
+The complete probe's instructions are source-matched, but successful sound-card
+initialization, later failure paths, GPIO interrupts/work and actual ALSA
+routing effects have not been emulated. Those are required for the replacement.
+
+## Remaining integration
+
+The two drivers are isolated reference objects. They are not integrated into
+the experimental kernel. A deployable implementation must repair publication,
+error cleanup, open-file lifetime and removal, supply checked hardware-version
+handling, and qualify SAI/clock integration, power management, playback and
+recording fidelity. A fresh connection to the known headset SSH endpoint timed
+out during this work; nothing was installed or flashed.

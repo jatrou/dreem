@@ -21,8 +21,11 @@ remaining gaps.
 The [WM8960 audio codec](audio-findings.md) now has a source-match recipe:
 four groups of changes to public NXP source reproduce all 21 emitted functions,
 control/routing tables, and registration data in the saved kernel. The comparison
-covers 16,796 bytes and validates 115 referenced strings. This is an isolated
-reference object; the separate audio board driver and physical tests remain.
+covers 16,796 bytes and validates 115 referenced strings. The separate board
+driver now also matches all 17 functions and tables (5,644 bytes). Its jack
+verifier reproduces 79 cases, including startup/removal defects that a deployable
+replacement must fix. Both remain isolated references; integration and physical
+tests are unfinished. See the same audio findings for scope and reproduction.
 
 An optional [Femto bus-frequency policy](busfreq-findings.md) now reconstructs
 the saved counter rules, disabled automatic lowering, and modified high-rate

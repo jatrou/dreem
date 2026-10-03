@@ -100,6 +100,15 @@ code, copyright 2026 Dreem research contributors. The upstream checkout and
 vendor firmware are external inputs; no compiled codec or vendor decompilation
 is included. See [audio findings](development/audio-findings.md).
 
+`development/wm8960_board_reference.py` uses GPL-2.0-or-later. Its matching
+anchors and jack-routing helper adapt public NXP `imx-wm8960.c`, copyright
+2015-2016 Freescale Semiconductor, with new interface/lifecycle reconstruction
+by Dreem research contributors (2026). The generated private source retains
+the upstream notice. `development/verify_wm8960_board_sources.py` and
+`development/verify_wm8960_jack.py` are new GPL-2.0-only verification code,
+copyright 2026 Dreem research contributors. The reference preserves observed
+defects for analysis; no compiled driver or vendor decompilation is bundled.
+
 ## Upstream source snapshots
 
 The files under `third-party/source-snapshots/` are attributed snapshots of these upstream repositories:

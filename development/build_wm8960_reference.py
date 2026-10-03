@@ -54,7 +54,7 @@ def reconstruct(code):
     return code
 
 
-def build(source, config, output, compiler, jobs):
+def build(source, config, output, compiler, jobs, board=False):
     if output.exists() or output.is_symlink():
         raise ValueError('output must be a new private directory')
     source, config, output = (p.resolve() for p in (source, config, output))
@@ -62,10 +62,16 @@ def build(source, config, output, compiler, jobs):
     dirty = subprocess.check_output(['git', '-C', str(source), 'status', '--porcelain'], text=True)
     if revision != REVISION or dirty or sha(source / DRIVER) != SOURCE_HASH:
         raise ValueError('requires clean pinned NXP source')
+    if board:
+        import wm8960_board_reference as board_source
+        if sha(source / board_source.DRIVER) != board_source.SOURCE_HASH:
+            raise ValueError('unexpected NXP board source')
     original_config = config.read_bytes()
     for option in (b'CONFIG_ARM=y', b'CONFIG_SND_SOC_WM8960=y'):
         if option not in original_config.splitlines():
             raise ValueError('missing required option: ' + option.decode())
+    if board and b'CONFIG_SND_SOC_IMX_WM8960=y' not in original_config.splitlines():
+        raise ValueError('board reference requires built-in IMX_WM8960')
     output.mkdir(mode=0o700)
     tree, kernel = output / 'source', output / 'kernel'
     tree.mkdir(mode=0o700)
@@ -79,6 +85,11 @@ def build(source, config, output, compiler, jobs):
         raise ValueError('NXP snapshot failed')
     (tree / DRIVER).write_text(reconstruct((tree / DRIVER).read_text()))
     patched_hash = sha(tree / DRIVER)
+    targets = ['sound/soc/codecs/wm8960.o']
+    if board:
+        (tree / board_source.DRIVER).write_text(board_source.reconstruct((tree / board_source.DRIVER).read_text()))
+        board_hash = sha(tree / board_source.DRIVER)
+        targets.append('sound/soc/fsl/imx-wm8960.o')
     (kernel / '.config').write_bytes(original_config)
     make = ['make', '-C', str(tree), 'O=' + str(kernel), 'ARCH=arm',
             'CROSS_COMPILE=' + compiler, 'HOSTCFLAGS=-O2 -fcommon',
@@ -87,10 +98,12 @@ def build(source, config, output, compiler, jobs):
         subprocess.run([compiler + 'gcc', '--version'], stdout=log, check=True)
         subprocess.run(make + ['olddefconfig', 'modules_prepare'], stdout=log,
                        stderr=subprocess.STDOUT, check=True)
-        subprocess.run(make + ['-j' + str(jobs), 'sound/soc/codecs/wm8960.o'],
+        subprocess.run(make + ['-j' + str(jobs)] + targets,
                        stdout=log, stderr=subprocess.STDOUT, check=True)
     if sha(tree / DRIVER) != patched_hash:
         raise ValueError('reference source changed during build')
+    if board and sha(tree / board_source.DRIVER) != board_hash:
+        raise ValueError('board reference source changed during build')
     result = {'nxp_revision': revision, 'original_source_sha256': SOURCE_HASH,
               'reference_source_sha256': patched_hash,
               'input_config_sha256': hashlib.sha256(original_config).hexdigest(),
@@ -102,6 +115,12 @@ def build(source, config, output, compiler, jobs):
               'input_routes_with_explicit_boost_control': 2,
               'integrated_into_research_kernel': False, 'installed': False,
               'hardware_qualified': False}
+    if board:
+        result['board'] = {'original_source_sha256': board_source.SOURCE_HASH,
+                           'reference_source_sha256': board_hash,
+                           'object_sha256': sha(kernel / targets[1]),
+                           'reconstruction_sha256': sha(Path(board_source.__file__)),
+                           'preserves_observed_cleanup_defects': True}
     (output / 'reference-build.json').write_text(json.dumps(result, indent=2) + '\n')
     return result
 
@@ -113,10 +132,12 @@ def main():
     parser.add_argument('new_output', type=Path)
     parser.add_argument('compiler_prefix')
     parser.add_argument('--jobs', type=int, choices=range(1, 65), default=8)
+    parser.add_argument('--board', action='store_true',
+                        help='also build the offline board-driver reference, including observed defects')
     args = parser.parse_args()
     os.umask(0o077)
     print(json.dumps(build(args.nxp_source, args.kernel_config, args.new_output,
-                           args.compiler_prefix, args.jobs), indent=2))
+                           args.compiler_prefix, args.jobs, args.board), indent=2))
 
 
 if __name__ == '__main__':
