@@ -175,7 +175,7 @@ def verify(source):
             "cases": cases, "runtime_qualified": False,
             "limits": ["instruction subset and synthetic bus model, not silicon",
                        "no ECSPI serial timing, ADC fidelity, or scheduler-context proof",
-                       "Linux driver does not yet implement this new control ABI"]}
+                       "this model alone does not verify Linux integration; see verify_sdma_pipeline.py"]}
 
 
 def main():

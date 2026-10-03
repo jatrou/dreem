@@ -21,18 +21,13 @@
 #include <linux/uaccess.h>
 
 #include "ads129x_init.h"
+#include "sdma_eeg_api.h"
 
 /* These objects are supplied by the reviewed vendor kernel, not by NXP's
  * unmodified baseline. The builder checks all imported symbol CRCs. */
 extern u8 *sdma_ads_user_buffer;
 extern int sdma_queue_head;
 extern struct semaphore ads_data_sem;
-
-#ifdef CONFIG_DREEM_EEG_SDMA
-extern int dreem_sdma_status(void);
-#else
-static int dreem_sdma_status(void) { return 0; }
-#endif
 
 static bool sdma_hardware_confirmed;
 module_param(sdma_hardware_confirmed, bool, 0400);
@@ -54,6 +49,7 @@ struct dreem_adc {
 	struct ads_sdma_state state;
 	bool opened, initialized, running, runtime_held;
 	bool gpio_power, gpio_cs, gpio_drdy, nonblock, pending;
+	bool dma_claimed, poisoned;
 	int io_error;
 	u8 pending_record[16];
 };
@@ -104,6 +100,12 @@ static u32 adc_io(void *context, enum ads_io_operation operation, u32 a, u32 b)
 		reg = adc_register(adc, a);
 		return reg ? readl(reg) : 0;
 	case ADS_WRITE32:
+#ifdef CONFIG_DREEM_EEG_SDMA
+		/* The provider owns event masking and its shared-register lock. All
+		 * CPU control paths establish PAUSE before entering this transport. */
+		if (a == EVENT_PHYS)
+			return 0;
+#endif
 		reg = adc_register(adc, a);
 		if (a == EVENT_PHYS && b == 2)
 			dma_wmb();
@@ -158,19 +160,40 @@ static void adc_free(struct kref *ref)
 }
 
 /* Caller holds lock. Memory/resources outlive open descriptors on unbind. */
-static void adc_shutdown(struct dreem_adc *adc)
+static int adc_shutdown(struct dreem_adc *adc)
 {
+	int ret = 0;
+	if (adc->poisoned)
+		return -EIO;
+	if (adc->dma_claimed)
+		ret = dreem_sdma_control(DREEM_SDMA_PAUSE);
+	if (ret) {
+		/* DMA may still use SPI. Keep the controller awake and retain its
+		 * GPIO/device/mapping ownership until reboot; do not issue SPI or
+		 * power-off commands on an unproved handoff. */
+		adc->poisoned = true;
+		kref_get(&adc->ref);
+		adc->initialized = adc->running = adc->pending = false;
+		return ret;
+	}
 	if (adc->initialized) {
-		spi_bus_lock(adc->spi->master);
-		ads129x_sdma_release(&adc->transport);
-		spi_bus_unlock(adc->spi->master);
+		ret = spi_bus_lock(adc->spi->master);
+		if (!ret) {
+			ads129x_sdma_release(&adc->transport);
+			spi_bus_unlock(adc->spi->master);
+		}
 	}
 	adc->initialized = adc->running = adc->pending = false;
+	if (adc->dma_claimed) {
+		dreem_sdma_control(DREEM_SDMA_RELEASE);
+		adc->dma_claimed = false;
+	}
 	if (adc->runtime_held) {
 		pm_runtime_mark_last_busy(adc->spi->master->dev.parent);
 		pm_runtime_put_autosuspend(adc->spi->master->dev.parent);
 		adc->runtime_held = false;
 	}
+	return ret;
 }
 
 static int adc_open(struct inode *inode, struct file *file)
@@ -188,6 +211,10 @@ static int adc_open(struct inode *inode, struct file *file)
 		ret = -EBUSY;
 		goto out;
 	}
+	if (adc->poisoned) {
+		ret = -EIO;
+		goto out;
+	}
 	ret = dreem_sdma_status();
 	if (ret)
 		goto out;
@@ -196,10 +223,14 @@ static int adc_open(struct inode *inode, struct file *file)
 		ret = -EAGAIN;
 		goto out;
 	}
+	ret = dreem_sdma_control(DREEM_SDMA_CLAIM);
+	if (ret)
+		goto out;
+	adc->dma_claimed = true;
 	ret = pm_runtime_get_sync(adc->spi->master->dev.parent);
 	if (ret < 0) {
 		pm_runtime_put_noidle(adc->spi->master->dev.parent);
-		goto out;
+		goto failed;
 	}
 	adc->runtime_held = true;
 	ret = spi_bus_lock(adc->spi->master);
@@ -228,13 +259,14 @@ out:
 static int adc_close(struct inode *inode, struct file *file)
 {
 	struct dreem_adc *adc = file->private_data;
+	int ret;
 	atomic_set(&adc->cancelled, 1);
 	mutex_lock(&adc->lock);
-	adc_shutdown(adc);
+	ret = adc_shutdown(adc);
 	adc->opened = false;
 	mutex_unlock(&adc->lock);
 	kref_put(&adc->ref, adc_free);
-	return 0;
+	return ret;
 }
 
 static ssize_t adc_read(struct file *file, char __user *buffer, size_t size, loff_t *position)
@@ -321,6 +353,11 @@ static long adc_ioctl(struct file *file, unsigned int command, unsigned long arg
 	}
 	adc->io_error = 0;
 	if (command != 4) {
+		ret = dreem_sdma_control(DREEM_SDMA_PAUSE);
+		if (ret) {
+			adc_shutdown(adc);
+			goto out;
+		}
 		ret = spi_bus_lock(adc->spi->master);
 		if (ret)
 			goto out;
@@ -334,10 +371,6 @@ static long adc_ioctl(struct file *file, unsigned int command, unsigned long arg
 		adc->pending = false;
 		/* Ring reset must be visible before enabling peripheral requests. */
 		ret = ads129x_sdma_start(&adc->transport, &adc->state);
-		if (!ret) {
-			adc->running = true;
-			atomic_set(&adc->cancelled, 0);
-		}
 		break;
 	case 5:
 		ret = ads129x_sdma_test_signal(&adc->transport);
@@ -352,6 +385,15 @@ static long adc_ioctl(struct file *file, unsigned int command, unsigned long arg
 		spi_bus_unlock(adc->spi->master);
 	if (adc->io_error)
 		ret = adc->io_error;
+	if (!ret && command == 1) {
+		ret = dreem_sdma_control(DREEM_SDMA_RUN);
+		if (!ret) {
+			adc->running = true;
+			atomic_set(&adc->cancelled, 0);
+		} else {
+			adc_shutdown(adc);
+		}
+	}
 	if (ret && command != 4) {
 		adc->initialized = adc->running = false;
 		atomic_set(&adc->cancelled, 1);
@@ -448,7 +490,7 @@ static int adc_suspend(struct device *device)
 	struct dreem_adc *adc = spi_get_drvdata(to_spi_device(device));
 	int ret;
 	mutex_lock(&adc->lock);
-	ret = adc->opened ? -EBUSY : 0;
+	ret = (adc->opened || adc->poisoned) ? -EBUSY : 0;
 	mutex_unlock(&adc->lock);
 	return ret;
 }

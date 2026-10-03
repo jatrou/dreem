@@ -25,11 +25,12 @@ class BusStalled(RuntimeError):
 class Machine:
     def __init__(self, program, frames=(), request=3, latency=7,
                  fail_at=None, failure="immediate", origin=0x1800,
-                 peripheral_latency=None):
+                 peripheral_latency=None, ring_base=RING, control_base=CONTROL):
         self.words = struct.unpack(f"<{len(program) // 2}H", program)
         self.origin = origin
         self.pc = origin
-        self.r = [RING, RING_BYTES, CONTROL, SPI, 0, 0, 0, 0]
+        self.ring_base, self.control_base = ring_base, control_base
+        self.r = [ring_base, RING_BYTES, control_base, SPI, 0, 0, 0, 0]
         self.mem = bytearray(b"\xa5" * RING_BYTES + b"\0" * CONTROL_BYTES)
         self.time = self.steps = self.operations = 0
         self.t = self.sf = self.df = False
@@ -46,14 +47,13 @@ class Machine:
             raise ValueError("each synthetic SPI frame must have four words")
         self.rx = deque()
         self.tx, self.irqs, self.trace = [], [], []
-        self.write(CONTROL + 4, request)
+        self.write(self.control_base + 4, request)
 
-    @staticmethod
-    def offset(address, size):
-        if RING <= address and address + size <= RING + RING_BYTES:
-            return address - RING
-        if CONTROL <= address and address + size <= CONTROL + CONTROL_BYTES:
-            return RING_BYTES + address - CONTROL
+    def offset(self, address, size):
+        if self.ring_base <= address and address + size <= self.ring_base + RING_BYTES:
+            return address - self.ring_base
+        if self.control_base <= address and address + size <= self.control_base + CONTROL_BYTES:
+            return RING_BYTES + address - self.control_base
         raise AssertionError(f"DMA outside allocated memory: {address:#x}+{size}")
 
     def read(self, address):
@@ -253,8 +253,8 @@ class Machine:
             if condition:
                 target += low if low < 128 else low - 256
         elif word == 0x0101:
-            self.irqs.append((self.read(CONTROL), self.read(CONTROL + 8),
-                              self.read(CONTROL + 12), bytes(self.mem[:RING_BYTES])))
+            self.irqs.append((self.read(self.control_base), self.read(self.control_base + 8),
+                              self.read(self.control_base + 12), bytes(self.mem[:RING_BYTES])))
             if self.pending_m or self.pending_p or self.fifo:
                 raise AssertionError("IRQ before DMA drain")
         elif word == 0x0000:
@@ -277,16 +277,16 @@ class Machine:
         raise AssertionError("instruction bound exceeded")
 
     def pause(self, generation=4):
-        if generation & 1 or generation == self.read(CONTROL + 8):
+        if generation & 1 or generation == self.read(self.control_base + 8):
             raise ValueError("pause requires a fresh even generation")
-        self.write(CONTROL + 4, generation)
+        self.write(self.control_base + 4, generation)
         self.ep = True  # Host has already masked the hardware event.
         self.run_until(lambda m: not m.ep)
-        if self.read(CONTROL + 12) or self.read(CONTROL + 8) != generation:
+        if self.read(self.control_base + 12) or self.read(self.control_base + 8) != generation:
             raise AssertionError("pause was not acknowledged successfully")
 
     def resume(self, generation=5):
-        if not generation & 1 or self.ep or self.read(CONTROL + 12):
+        if not generation & 1 or self.ep or self.read(self.control_base + 12):
             raise ValueError("resume requires a paused, healthy channel and odd request")
-        self.write(CONTROL + 4, generation)
+        self.write(self.control_base + 4, generation)
         self.ep = True

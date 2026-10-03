@@ -6,10 +6,10 @@ The complete kernel links, and the ADC module builds against its real exports.
 This is a source-built acquisition component, **not a complete Dreem board
 kernel or a firmware image qualified for installation**.
 
-The separately developed [cooperative acquisition program](sdma-program.md)
-requires a new control allocation and host protocol. This provider still uses
-the stock script ABI; it must not load that new program until integration is
-implemented. The current sleep and buffer-retention restrictions still apply.
+The [cooperative acquisition program](sdma-program.md) is now assembled into
+the driver, with its padded control allocation and consumer ownership API.
+Both this managed mode and the historical script ABI can be built and tested.
+The current sleep and buffer-retention restrictions still apply.
 
 ## Build and interfaces
 
@@ -32,6 +32,10 @@ and requires every replacement anchor to be unique.
 
 /private/work/venv/bin/python development/verify_adc_module.py \
   /private/work/sdma-provider/module/dreem_eeg_research.ko
+
+/private/work/venv/bin/python development/verify_sdma_pipeline.py \
+  /private/work/sdma-provider/kernel/drivers/dma/imx-sdma.o \
+  /private/work/sdma-provider/module/dreem_eeg_research.ko
 ```
 
 The generated Kconfig option `DREEM_EEG_SDMA` requires built-in `IMX_SDMA`
@@ -47,7 +51,12 @@ registered. The driver exposes root-only `user_script`, `trigger`,
 even, at most 1,024 bytes, and fit the available program address range.
 Register changes and repeated triggers are refused after startup. As in
 stock, the context replaces r0-r2 with the ring address, 1,024, and counter
-address; user-supplied r3-r7 remain in the context.
+address; user-supplied r3-r7 remain in the legacy context. Trigger value `1`
+starts that legacy ABI. Value `2` assembles no runtime input: it loads the
+program built from `sdma_acquire.asm`, allocates 64 control bytes, sets r3 to
+ECSPI1, and completes the initial pause before publishing the ring. Repeated
+triggers cannot reset an armed channel. Never raw-upload the new program
+with the legacy four-byte allocation.
 
 The three shared objects reproduce stock CRCs from the actual provider:
 
@@ -58,8 +67,9 @@ The three shared objects reproduce stock CRCs from the actual provider:
 | `sdma_queue_head` | `7c303094` |
 
 The additional GPL export `dreem_sdma_status()` lets the ADC distinguish a
-ready provider from unavailable data or a latched fault. The integrated ADC
-has 43 imports, all checked against this kernel's generated `Module.symvers`.
+ready provider from unavailable data or a latched fault. The second GPL export,
+`dreem_sdma_control()`, provides exclusive claim, pause, run, and release.
+The integrated ADC has 44 imports, all checked against this kernel's generated `Module.symvers`.
 With the option absent, the ADC retains its stock interface: 42 imports still
 match the reviewed stock image and its 64 existing emulated cases pass.
 
@@ -93,7 +103,7 @@ is not established by this build. Direct lookup during early probe can also
 precede root-filesystem availability; any device trial must establish the
 actual firmware lookup and RAM ownership first.
 
-Startup checks both coherent allocations and loads the recovered 128-byte
+Legacy startup checks both coherent allocations and loads the recovered 128-byte
 channel context. It sets the initialization event, starts channel 1, and
 waits for that event to clear, with at most 1,000 sleeps requesting 100-200 us.
 This is an attempt bound, not a hard scheduling deadline. The private script's
@@ -103,12 +113,12 @@ for the first sample interrupt. Only successful initialization publishes the
 ring pointer. Publication and IRQ faults share a spinlock so publication
 cannot erase a concurrent fault.
 
-The first later EEG interrupt still follows the stock suppression behavior;
+The first later legacy EEG interrupt follows the stock suppression behavior;
 subsequent interrupts take one counter snapshot and notify at most 64 times.
 An excessive jump latches `EOVERFLOW`, disables EEG requests and channel
 priority, and wakes the reader. The managed ADC checks status before and
-after waiting and before copying a frame, propagates the error, and powers
-off its acquisition path. This does not detect every accumulated backlog
+after waiting and before copying a frame and propagates the error. It only
+issues ADC shutdown commands after an acknowledged DMA pause. This does not detect every accumulated backlog
 or eliminate concurrent ring overwrite during a sample copy.
 
 Allocation and clock failures before command submission unwind and permit
@@ -119,40 +129,89 @@ a stale completion bit as completion of the new command. Successfully
 published ring/counter allocations are also retained until reboot; they are
 not owned by an ADC file descriptor and cannot be freed when one closes.
 
+## Managed acquisition handoff
+
+The managed loader checks alignment and overlap for the entire padded control
+allocation. Initialization uses fresh request `2` and requires both its exact
+acknowledgement and EP clear. It does not require an ADC sample. Managed
+progress starts initialized, so the first real sample is delivered rather than
+suppressed. The consumer cannot claim a legacy-script instance.
+
+Claim/pause/run/release calls are serialized by a mutex. State transitions and
+IRQ accounting share a spinlock. Pause masks the event, reads that register
+back, publishes a fresh even request with a DMA barrier, and explicitly wakes
+the script. At most 1,000 100–200 us sleep attempts wait for matching ACK and
+EP clear; a stale ACK or just one of those conditions cannot establish a stop.
+After that proof the driver synchronizes IRQ handling, accounts the final
+producer count, clears a pending notification, and leaves channel priority zero.
+Resume preserves the counter/next ring slot, uses a fresh odd request, and
+enables acquisition only after CPU configuration is finished. Generation
+exhaustion returns an error rather than reusing an old acknowledgement.
+
+The ADC claims the paused provider before initialization. Every SPI control
+operation and ring reset requires a confirmed pause; event writes in its
+portable transport are replaced by provider-owned event updates. Both ordinary
+NXP event updates and EEG updates use one register lock and preserve other
+channel bits. Test-signal setup stays paused until an explicit start.
+
+Normal close releases the claim and controller PM reference. If pause fails,
+the ADC marks the instance unusable and pins its GPIO, mappings, device, and
+controller PM reference until reboot. Repeated close/remove paths retain one
+extra instance reference, not an ever-growing leak. They issue no further SPI
+or power-off commands. System sleep is refused for an open or poisoned ADC.
+The provider retains its own coherent buffers and SDMA clocks in either mode.
+An unexpected EP clear during running is a fault even if the DMA error report
+could not be written. These mechanisms still require hardware qualification.
+
 ## Verification and remaining work
 
-The actual compiled ARM provider object passes **64 synthetic cases**:
+The actual compiled ARM provider object passes **89 synthetic cases**:
 script boundaries and rejected states; allocation/clock rollback; channel-0
 timeouts with stale completion; bounded initialization failure; context and
 descriptor contents; startup with no interrupt; mixed IRQ dispatch preserving
 channel 0; counter/index wrap; fault latching and notification; malformed
 external firmware; firmware upload failures; and the external-RAM ownership
-gate. The verifier evaluates only the initial arithmetic of the private SDMA
-program. It does not emulate its sample-transfer loop or real peripherals.
+gate. The 25 managed-mode cases additionally execute the source-built SDMA
+program against modeled coherent buffers: initial pause, consumer exclusivity,
+first-frame delivery, stop/resume, undispatched IRQ accounting, error/timeout
+retention, rejected stale/partial acknowledgements, and generation exhaustion.
+For the private legacy program only its initial arithmetic is evaluated; its
+transfer loop is not emulated.
 
-The integrated ADC passes **71 compiled ARM cases**, including seven provider
+The integrated ADC passes **78 compiled ARM cases**, including seven provider
 fault paths: read, pending-copy retry, blocking/nonblocking wakeup, start,
-test-signal setup, and open. The stock-interface build independently passes
+test-signal setup, and open, plus seven managed ownership/failure sequences.
+The stock-interface build independently passes
 its 64 cases. These models check resource accounting and ordered observations;
 they do not establish real concurrent scheduling or physical DMA behavior.
 Generic DMA dispatch is checked only with an ordinary channel having no active
 descriptor; unrelated NXP DMA workloads are not qualified by this test.
 
+`verify_sdma_pipeline.py` connects the actual compiled ADC and provider entry
+points in two ARM emulator instances, with the uploaded program running in the
+instruction model. Its **76 cases** include 70 delivered synthetic frames across
+a ring wrap, stop/test/restart, close/reopen, an undispatched IRQ at stop, normal
+resource release, a real modeled SDMA error reaching the reader, and timeout
+retention. It checks delivered bytes, ordering, queue depth, and initialized
+padding. Peripheral wire timing, concurrent kernel scheduling, and physical
+recording quality are not established by this connected test.
+
 Current artifact identifiers, which include build-path/metadata effects:
 
 | Artifact | SHA-256 |
 | --- | --- |
-| Integrated `vmlinux` | `0fdc938b1f3efd6c238c64926b36299f6a7913dac3127c0307ea03cf2275ece3` |
-| Integrated `imx-sdma.o` | `5402e9062fd86308368e1d31c4c4d705ee79658d3e1cc71909b1cc6dd2a4b815` |
-| Integrated ADC module | `1280542787c5e76b32e2bc1e950f49755c0ccfde919b61ee71a92233c0201e27` |
+| Integrated `vmlinux` | `8ffa24deb34e53f1e12e5334e92884a0aa739309372b2665442e80938c6483cb` |
+| Integrated `imx-sdma.o` | `9270a3bc12426869dcc77b386c958ff467a0e777e8a3a0f4c42933de08be252b` |
+| Integrated ADC module | `e991a25e2ae8507595ab17ea410d52857c9be096a0dea72750071b4c24a76cda` |
 
 The manual input's SHA-256 is
 `7bf1aaaa2b108e6dc9b1e6f73deefd7b955090564bf39c4a7e57a5fcc4e861fa`.
 The PDF, firmware, generated source tree, kernel, and modules remain private.
 
-The enabled research provider currently refuses system sleep. Coordinated
-stop/reset, DMA quiescence, suspend/resume, and normal memory reclamation are
-unfinished. A latched DMA fault requires reboot, not repeated trigger writes.
+The enabled research provider currently refuses system sleep. Cooperative
+pause/resume is implemented and modeled; coordinated context reset after a
+fault, suspend/resume, and normal memory reclamation are unfinished. A latched
+DMA fault requires reboot, not repeated trigger writes.
 No hot-unbind/unload lifecycle is supported. These limitations prevent using
 this build as an everyday headset kernel. The board's missing clock, DDR,
 audio, and other driver behavior also remains a separate reconstruction task.

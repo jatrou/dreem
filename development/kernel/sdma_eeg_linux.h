@@ -2,10 +2,11 @@
 /* Private imx-sdma extension state. Included only by the research overlay. */
 #include <linux/mutex.h>
 #include "sdma_eeg.h"
+#include "sdma_eeg_api.h"
 
 struct dreem_sdma {
 	struct mutex lock;
-	spinlock_t progress_lock;
+	spinlock_t progress_lock, event_lock;
 	struct sdma_eeg_progress progress;
 	u32 registers[8], pc;
 	u8 *ring;
@@ -14,6 +15,8 @@ struct dreem_sdma {
 	int irq, error;
 	bool enabled, firmware_done, script_loaded, armed, published, removed;
 	bool clocks_held, command_failed;
+	bool managed, paused, pausing, claimed;
+	u32 request;
 };
 
 static bool dreem_eeg_enabled;

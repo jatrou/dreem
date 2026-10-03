@@ -72,7 +72,7 @@ def build(source, baseline, stock, output, compiler, jobs):
                 raise ValueError("provider export does not match stock: " + name)
         here = Path(__file__).resolve().parent
         files = [here / "ads129x_init.c", here / "ads129x_init.h",
-                 here / "kernel/adc_linux.c", here / "kernel/Makefile"]
+                 here / "kernel/adc_linux.c", here / "kernel/sdma_eeg_api.h", here / "kernel/Makefile"]
         for path in files:
             shutil.copyfile(path, module / path.name)
         print("Building ADC module against the real provider", flush=True)
@@ -81,7 +81,7 @@ def build(source, baseline, stock, output, compiler, jobs):
     artifact = module / "dreem_eeg_research.ko"
     with artifact.open("rb") as stream:
         imports = module_versions(ELFFile(stream).get_section_by_name("__versions").data())
-    if "dreem_sdma_status" not in imports or any(symbols.get(n) != c for n, c in imports.items()):
+    if not {"dreem_sdma_status", "dreem_sdma_control"}.issubset(imports) or any(symbols.get(n) != c for n, c in imports.items()):
         raise ValueError("ADC imports do not match integrated kernel")
     report = {"nxp_revision": revision, "stock_kernel_raw_sha256": RAW_HASH,
               "baseline_config_sha256": sha(baseline / ".config"),
@@ -95,6 +95,7 @@ def build(source, baseline, stock, output, compiler, jobs):
               "source_files": {str(p.relative_to(here)): sha(p) for p in
                                [*files, here / "sdma_eeg.c", here / "sdma_eeg.h",
                                 here / "kernel/sdma_eeg_linux.h", here / "kernel/sdma_eeg_linux.inc",
+                                here / "sdma_acquire.asm", here / "sdma_assemble.py", here / "sdma_disassemble.py",
                                 here / "apply_sdma_overlay.py", Path(__file__).resolve()]}}
     (output / "provider-build.json").write_text(json.dumps(report, indent=2) + "\n")
     return report

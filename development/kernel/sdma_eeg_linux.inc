@@ -2,12 +2,14 @@
 /* Independent research extension to the pinned NXP driver. No vendor source.
  * Built-in, static DT only. See sdma-provider.md before any device trial. */
 #include "sdma_eeg.c"
+#include "sdma_acquire_code.h"
 
 #define DREEM_PROGRAM_START 0x1800u
 #define DREEM_PROGRAM_END   0x2000u
 #define DREEM_SCRIPT_BYTES  1024u
 #define DREEM_CHANNEL       1
 #define DREEM_EVENT         3
+#define DREEM_CONTROL_BYTES 64
 
 u8 *sdma_ads_user_buffer;
 int sdma_queue_head;
@@ -32,11 +34,22 @@ int dreem_sdma_status(void)
 }
 EXPORT_SYMBOL_GPL(dreem_sdma_status);
 
+static void dreem_sdma_event(struct sdma_engine *sdma, bool enable)
+{
+	unsigned long flags;
+	u32 offset = chnenbl_ofs(sdma, DREEM_EVENT);
+	u32 value;
+	spin_lock_irqsave(&sdma->eeg.event_lock, flags);
+	value = readl(sdma->regs + offset);
+	writel(enable ? value | BIT(DREEM_CHANNEL) : value & ~BIT(DREEM_CHANNEL),
+	       sdma->regs + offset);
+	readl(sdma->regs + offset); /* Complete event masking before publishing STOP. */
+	spin_unlock_irqrestore(&sdma->eeg.event_lock, flags);
+}
+
 static void dreem_sdma_stop(struct sdma_engine *sdma)
 {
-	u32 offset = chnenbl_ofs(sdma, DREEM_EVENT);
-	u32 value = readl(sdma->regs + offset);
-	writel(value & ~BIT(DREEM_CHANNEL), sdma->regs + offset);
+	dreem_sdma_event(sdma, false);
 	writel(BIT(DREEM_CHANNEL), sdma->regs + SDMA_H_STATSTOP);
 	writel(0, sdma->regs + SDMA_CHNPRI_0 + 4 * DREEM_CHANNEL);
 }
@@ -74,7 +87,12 @@ static void dreem_sdma_irq(struct sdma_engine *sdma)
 	/* One coherent counter snapshot, then order the accompanying sample data. */
 	count = READ_ONCE(*eeg->counter);
 	dma_rmb();
-	ret = sdma_eeg_advance(&eeg->progress, count, dreem_sdma_notify, sdma);
+	if (eeg->managed && (READ_ONCE(eeg->counter[3]) ||
+	    (!eeg->paused && !eeg->pausing &&
+	     !(readl(sdma->regs + SDMA_H_EVTPEND) & BIT(DREEM_CHANNEL)))))
+		ret = -EIO;
+	else
+		ret = sdma_eeg_advance(&eeg->progress, count, dreem_sdma_notify, sdma);
 	if (ret < 0) {
 		WRITE_ONCE(eeg->error, ret);
 		WRITE_ONCE(dreem_sdma_error, ret);
@@ -228,10 +246,135 @@ static ssize_t dreem_user_script_store(struct device *dev,
 	else
 		dreem_sdma_clocks_put(sdma);
 	eeg->script_loaded = !ret;
+	eeg->managed = false;
 out:
 	mutex_unlock(&eeg->lock);
 	return ret ? ret : count;
 }
+
+/* eeg.lock serializes the consumer and loader. progress_lock covers IRQ
+ * state transitions; IRQ never acquires eeg.lock or channel_0_lock. */
+static int dreem_sdma_pause_locked(struct sdma_engine *sdma)
+{
+	struct dreem_sdma *eeg = &sdma->eeg;
+	unsigned long flags;
+	unsigned int attempt;
+	int ret;
+	if (eeg->paused)
+		return 0;
+	if (eeg->error)
+		return eeg->error;
+	if (eeg->request >= 0xfffffffeu)
+		return -EOVERFLOW;
+	spin_lock_irqsave(&eeg->progress_lock, flags);
+	eeg->pausing = true;
+	dreem_sdma_event(sdma, false);
+	eeg->request = (eeg->request + 2) & ~1u;
+	WRITE_ONCE(eeg->counter[1], eeg->request);
+	dma_wmb();
+	writel(BIT(DREEM_CHANNEL), sdma->regs + SDMA_H_INTR);
+	sdma_set_channel_priority(&sdma->channel[DREEM_CHANNEL], 1);
+	writel(BIT(DREEM_CHANNEL), sdma->regs + SDMA_H_EVTPEND);
+	sdma_enable_channel(sdma, DREEM_CHANNEL);
+	spin_unlock_irqrestore(&eeg->progress_lock, flags);
+	for (attempt = 0; attempt < 1000; ++attempt) {
+		u32 ack = READ_ONCE(eeg->counter[2]);
+		dma_rmb();
+		ret = READ_ONCE(eeg->error);
+		if (!ret && READ_ONCE(eeg->counter[3]))
+			ret = -EIO;
+		if (ret)
+			break;
+		if (ack == eeg->request &&
+		    !(readl(sdma->regs + SDMA_H_EVTPEND) & BIT(DREEM_CHANNEL))) {
+			/* Drain pending IRQ accounting before the consumer resets its ring.
+			 * A late/coalesced interrupt must not suppress the first new frame. */
+			synchronize_irq(eeg->irq);
+			spin_lock_irqsave(&eeg->progress_lock, flags);
+			eeg->paused = true;
+			eeg->pausing = false;
+			dreem_sdma_stop(sdma);
+			ret = sdma_eeg_advance(&eeg->progress, READ_ONCE(eeg->counter[0]),
+					       dreem_sdma_notify, sdma);
+			if (ret >= 0)
+				ret = READ_ONCE(eeg->error);
+			writel(BIT(DREEM_CHANNEL), sdma->regs + SDMA_H_INTR);
+			spin_unlock_irqrestore(&eeg->progress_lock, flags);
+			if (!ret)
+				return 0;
+			break;
+		}
+		usleep_range(100, 200);
+	}
+	if (attempt == 1000)
+		ret = -ETIMEDOUT;
+	spin_lock_irqsave(&eeg->progress_lock, flags);
+	eeg->pausing = false;
+	WRITE_ONCE(eeg->error, ret);
+	WRITE_ONCE(dreem_sdma_error, ret);
+	dreem_sdma_stop(sdma);
+	up(&ads_data_sem);
+	spin_unlock_irqrestore(&eeg->progress_lock, flags);
+	return ret;
+}
+
+int dreem_sdma_control(unsigned int command)
+{
+	struct sdma_engine *sdma = READ_ONCE(dreem_sdma_owner);
+	struct dreem_sdma *eeg;
+	unsigned long flags;
+	int ret = 0;
+	if (!sdma)
+		return -ENODEV;
+	eeg = &sdma->eeg;
+	mutex_lock(&eeg->lock);
+	if (!eeg->managed || !eeg->published || eeg->removed) {
+		ret = -EOPNOTSUPP;
+		goto out;
+	}
+	if (command == DREEM_SDMA_CLAIM) {
+		if (eeg->claimed)
+			ret = -EBUSY;
+		else if (eeg->error)
+			ret = eeg->error;
+		else if (!(ret = dreem_sdma_pause_locked(sdma)))
+			eeg->claimed = true;
+	} else if (!eeg->claimed) {
+		ret = -EPERM;
+	} else if (command == DREEM_SDMA_PAUSE || command == DREEM_SDMA_RELEASE) {
+		ret = dreem_sdma_pause_locked(sdma);
+		if (!ret && command == DREEM_SDMA_RELEASE)
+			eeg->claimed = false;
+	} else if (command == DREEM_SDMA_RUN) {
+		if (eeg->error)
+			ret = eeg->error;
+		else if (!eeg->paused)
+			ret = -EBUSY;
+		else if (eeg->request >= 0xfffffffeu)
+			ret = -EOVERFLOW;
+		else {
+			spin_lock_irqsave(&eeg->progress_lock, flags);
+			ret = READ_ONCE(eeg->error);
+			if (!ret) {
+				writel(BIT(DREEM_CHANNEL), sdma->regs + SDMA_H_INTR);
+				WRITE_ONCE(eeg->counter[1], ++eeg->request);
+				dma_wmb();
+				eeg->paused = false;
+				sdma_set_channel_priority(&sdma->channel[DREEM_CHANNEL], 1);
+				writel(BIT(DREEM_CHANNEL), sdma->regs + SDMA_H_EVTPEND);
+				sdma_enable_channel(sdma, DREEM_CHANNEL);
+				dreem_sdma_event(sdma, true);
+			}
+			spin_unlock_irqrestore(&eeg->progress_lock, flags);
+		}
+	} else {
+		ret = -EINVAL;
+	}
+out:
+	mutex_unlock(&eeg->lock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(dreem_sdma_control);
 
 static int dreem_sdma_start(struct sdma_engine *sdma)
 {
@@ -240,6 +383,7 @@ static int dreem_sdma_start(struct sdma_engine *sdma)
 	struct sdma_eeg_context_input input;
 	unsigned long flags;
 	unsigned int attempt;
+	size_t control_bytes = eeg->managed ? DREEM_CONTROL_BYTES : sizeof(*eeg->counter);
 	int ret;
 	if (eeg->error)
 		return eeg->error;
@@ -253,18 +397,29 @@ static int dreem_sdma_start(struct sdma_engine *sdma)
 				      &eeg->ring_phys, GFP_KERNEL);
 	if (!eeg->ring)
 		return -ENOMEM;
-	eeg->counter = dma_alloc_coherent(sdma->dev, sizeof(*eeg->counter),
+	eeg->counter = dma_alloc_coherent(sdma->dev, control_bytes,
 					 &eeg->counter_phys, GFP_KERNEL);
 	if (!eeg->counter) {
 		ret = -ENOMEM;
 		goto free_ring;
 	}
 	memset(eeg->ring, 0, SDMA_EEG_RING_BYTES);
-	*eeg->counter = 0;
+	memset(eeg->counter, 0, control_bytes);
 	input.pc = eeg->pc;
 	input.ring_phys = eeg->ring_phys;
 	input.counter_phys = eeg->counter_phys;
 	memcpy(input.registers, eeg->registers, sizeof(input.registers));
+	if (eeg->managed) {
+		if ((eeg->counter_phys & 63) || eeg->counter_phys > 0xffffffc0u ||
+		    (eeg->ring_phys < eeg->counter_phys + control_bytes &&
+		     eeg->counter_phys < eeg->ring_phys + SDMA_EEG_RING_BYTES)) {
+			ret = -EINVAL;
+			goto free_counter;
+		}
+		input.registers[3] = 0x02008000;
+		eeg->progress.initialized = 1;
+		eeg->pausing = true;
+	}
 	ret = dreem_sdma_clocks_get(sdma);
 	if (ret)
 		goto free_counter;
@@ -297,6 +452,12 @@ static int dreem_sdma_start(struct sdma_engine *sdma)
 	sdma->channel[DREEM_CHANNEL].context_loaded = true;
 	writel(BIT(DREEM_CHANNEL), sdma->regs + SDMA_H_INTR);
 	WRITE_ONCE(eeg->armed, true);
+	if (eeg->managed) {
+		ret = dreem_sdma_pause_locked(sdma);
+		if (ret)
+			goto failed;
+		goto publish;
+	}
 	dma_wmb();
 	sdma_set_channel_priority(&sdma->channel[DREEM_CHANNEL], 1);
 	/* The original boot script sets this initialization event explicitly. */
@@ -314,6 +475,7 @@ static int dreem_sdma_start(struct sdma_engine *sdma)
 		ret = -ETIMEDOUT;
 		goto failed;
 	}
+publish:
 	/* Serialize publication with the IRQ fault path, so a concurrent fault
 	 * cannot be overwritten with a successful global status. */
 	spin_lock_irqsave(&eeg->progress_lock, flags);
@@ -335,7 +497,7 @@ failed:
 	synchronize_irq(eeg->irq);
 	return ret;
 free_counter:
-	dma_free_coherent(sdma->dev, sizeof(*eeg->counter), eeg->counter, eeg->counter_phys);
+	dma_free_coherent(sdma->dev, control_bytes, eeg->counter, eeg->counter_phys);
 	eeg->counter = NULL;
 free_ring:
 	dma_free_coherent(sdma->dev, SDMA_EEG_RING_BYTES, eeg->ring, eeg->ring_phys);
@@ -349,10 +511,37 @@ static ssize_t dreem_trigger_store(struct device *dev,
 	struct sdma_engine *sdma = dev_get_drvdata(dev);
 	unsigned long value;
 	int ret = kstrtoul(buffer, 0, &value);
-	if (ret || value != 1)
+	if (ret || (value != 1 && value != 2))
 		return -EINVAL;
 	mutex_lock(&sdma->eeg.lock);
+	if (value == 2) {
+		struct dreem_sdma *eeg = &sdma->eeg;
+		ret = eeg->error;
+		if (!ret && (eeg->armed || eeg->removed))
+			ret = -EBUSY;
+		if (!ret && !eeg->firmware_done)
+			ret = -EAGAIN;
+		if (!ret && (eeg->pc < DREEM_PROGRAM_START || eeg->pc >= DREEM_PROGRAM_END ||
+		    ARRAY_SIZE(dreem_acquire_code) > DREEM_PROGRAM_END - eeg->pc))
+			ret = -ENOSPC;
+		if (ret)
+			goto out;
+		ret = dreem_sdma_clocks_get(sdma);
+		if (ret)
+			goto out;
+		ret = sdma_load_script(sdma, (void *)dreem_acquire_code,
+				       sizeof(dreem_acquire_code), eeg->pc);
+		if (eeg->command_failed)
+			eeg->clocks_held = true;
+		else
+			dreem_sdma_clocks_put(sdma);
+		eeg->script_loaded = !ret;
+		eeg->managed = !ret;
+		if (ret)
+			goto out;
+	}
 	ret = dreem_sdma_start(sdma);
+out:
 	mutex_unlock(&sdma->eeg.lock);
 	return ret ? ret : count;
 }

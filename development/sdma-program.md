@@ -2,13 +2,14 @@
 
 Verified offline on October 2, 2026. `sdma_acquire.asm` is a new, editable
 acquisition program using the observed four-word ECSPI interface and NXP's
-documented SDMA instructions. Its host control protocol is new. It has not
-been loaded on the headset or integrated into the Linux provider.
+documented SDMA instructions. Its host control protocol is new and is now
+implemented by the [Linux provider](sdma-provider.md). It has not been loaded
+on the headset.
 
-**Do not load this program through the existing stock or research trigger.**
-Those paths allocate a four-byte counter. This program requires a separate,
-64-byte control allocation and coordinated host changes. Using the old
-allocation would allow DMA outside allocated memory.
+**Do not raw-upload this program using the legacy trigger value `1`.** That
+path allocates a four-byte counter. The reconstructed provider's trigger value
+`2` instead loads its built-in assembled copy and uses the new 64-byte control
+allocation. Using the old allocation would allow DMA outside allocated memory.
 
 ## Why a different program is needed
 
@@ -75,7 +76,7 @@ sample conversion, or channel reordering occurs in this program. Ring offset
 advances by 16 bytes with wrap at 1,024. The existing byte decoder remains a
 separate component.
 
-The required host sequence, **not yet implemented by the Linux provider**, is:
+The host sequence implemented by the reconstructed provider is:
 
 1. Reserve the channel and allocations, mask its hardware event, install the
    new context, and use event ownership. Explicitly set EP to run initialization.
@@ -103,8 +104,9 @@ It does **not** establish that ECSPI has finished shifting bytes on the wire,
 that the ADC has stopped converting, or that other DMA channels are idle.
 The CPU must additionally follow the SPI/ADC shutdown sequence. Resetting the
 counter without rebuilding the SDMA context would desynchronize r5; ordinary
-pause/resume must leave the producer counter intact. Buffer reuse/freeing,
-coordinated reset, suspend/resume, and consumer ownership still need integration.
+pause/resume must leave the producer counter intact. The provider implements
+consumer ownership and pause/resume. Normal allocation reclamation, coordinated
+context reset after faults, and suspend/resume still need implementation.
 
 ## Build and verification
 

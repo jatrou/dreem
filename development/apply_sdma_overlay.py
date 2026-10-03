@@ -9,6 +9,12 @@ Independent extension files retain their own GPL-2.0-only identifiers.
 import hashlib
 from pathlib import Path
 import shutil
+import struct
+
+try:
+    from .sdma_assemble import assemble
+except ImportError:
+    from sdma_assemble import assemble
 
 INPUTS = {
     "imx-sdma.c": "f11b66a4c74a4ef27bb0f4c18984b04802b5ee93b7ed031d8f36ddc8164b2e43",
@@ -38,6 +44,17 @@ def apply(source):
 
     replace("struct sdma_engine;\n", "struct sdma_engine;\n" + guarded('#include "sdma_eeg_linux.h"\n'))
     replace("struct sdma_engine {\n", "struct sdma_engine {\n" + guarded("\tstruct dreem_sdma eeg;\n"))
+    for function in ("sdma_event_enable", "sdma_event_disable"):
+        start = code.index("static void " + function + "(")
+        end = code.index("\n}\n", start) + 3
+        old = code[start:end]
+        new = old.replace("\tunsigned long val;", "\tunsigned long val;\n" + guarded("\tunsigned long flags;\n"))
+        new = new.replace("\tval = readl_relaxed", guarded(
+            "\tspin_lock_irqsave(&sdma->eeg.event_lock, flags);\n") + "\tval = readl_relaxed")
+        new = new.replace("\twritel_relaxed(val, sdma->regs + chnenbl);",
+            "\twritel_relaxed(val, sdma->regs + chnenbl);\n" + guarded(
+            "\tspin_unlock_irqrestore(&sdma->eeg.event_lock, flags);\n"))
+        replace(old, new)
     replace("\tunsigned long timeout = 500;\n\n\tsdma_enable_channel(sdma, 0);",
             "\tunsigned long timeout = 500;\n" + guarded(
                 "\tif (sdma->eeg.enabled) {\n"
@@ -75,6 +92,7 @@ def apply(source):
     replace("\tconst char *fw_name;\n\tint ret;", "\tconst char *fw_name = NULL;\n\tint ret;")
     replace("\tsdma->drvdata = drvdata;\n\n\tirq", "\tsdma->drvdata = drvdata;\n" + guarded(
         "\tmutex_init(&sdma->eeg.lock);\n\tspin_lock_init(&sdma->eeg.progress_lock);\n"
+        "\tspin_lock_init(&sdma->eeg.event_lock);\n"
         "\tif (dreem_eeg_enabled) {\n\t\tif (!of_machine_is_compatible(\"fsl,imx6ull-femto\"))\n"
         "\t\t\treturn -ENODEV;\n\t\tsdma->eeg.enabled = true;\n\t}\n") + "\n\tirq")
     replace("\tiores = platform_get_resource(pdev, IORESOURCE_MEM, 0);\n\tsdma->regs",
@@ -113,6 +131,16 @@ def apply(source):
                      'CFLAGS_imx-sdma.o += -std=gnu99 -Wno-declaration-after-statement -msoft-float -fno-tree-vectorize -g\nendif\n')
     here = Path(__file__).resolve().parent
     files = [here / "sdma_eeg.c", here / "sdma_eeg.h",
-             here / "kernel/sdma_eeg_linux.h", here / "kernel/sdma_eeg_linux.inc"]
+             here / "kernel/sdma_eeg_linux.h", here / "kernel/sdma_eeg_linux.inc",
+             here / "kernel/sdma_eeg_api.h"]
     for path in files:
         shutil.copyfile(path, folder / path.name)
+    program, _ = assemble((here / "sdma_acquire.asm").read_text())
+    words = struct.unpack(f"<{len(program) // 2}H", program)
+    (folder / "sdma_acquire_code.h").write_text(
+        "/* SPDX-License-Identifier: GPL-2.0-only */\n"
+        "/* Generated from sdma_acquire.asm; do not edit. SHA-256: " +
+        hashlib.sha256(program).hexdigest() + " */\n"
+        "static const u16 dreem_acquire_code[] = {\n" +
+        "\n".join("\t" + ", ".join(f"0x{w:04x}" for w in words[i:i+8]) + ","
+                  for i in range(0, len(words), 8)) + "\n};\n")

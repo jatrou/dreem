@@ -2,14 +2,15 @@
 
 Verified offline on October 2, 2026. `kernel/adc_linux.c` connects the
 [reconstructed ADC component](adc-findings.md) to Linux file operations,
-ordered MMIO, GPIO, and the **existing stock SDMA provider**. It is an
+ordered MMIO, GPIO, and either the stock SDMA interface or the reconstructed
+managed provider. The latter coordinates DMA ownership and pause/resume. It is an
 experimental module, not a complete replacement kernel or a qualified driver.
 No module has been installed, loaded, or bound on the headset.
 
 ## Target and dependencies
 
-The target is the reviewed stock Linux 4.1.15 image with the nonzero hardware
-revision's SDMA path. The adapter intentionally depends on these stock exports:
+The stock compatibility target is the reviewed Linux 4.1.15 image with the
+nonzero hardware revision's SDMA path. Both builds use these shared exports:
 
 | Declaration | Independently reproduced export CRC |
 | --- | --- |
@@ -64,7 +65,8 @@ device must be quiescent and unbound before another driver can bind it.
 - Stop cancels a waiting reader before acquiring the operation mutex. Driver
   removal marks the instance detached, deregisters the device, shuts down
   acquisition, and retains instance/resources until open references close.
-- Suspend is refused while a descriptor remains open. Idle suspend relies on
+- Suspend is refused while a descriptor remains open or DMA ownership has
+  become uncertain. In the stock compatibility build, idle suspend relies on
   the stock provider's resume behavior. This conservative policy still needs
   physical power-management testing and may affect application sleep behavior.
 
@@ -105,7 +107,7 @@ disabled. The older GCC 7.3 does not support the newer host verifier's
 structure offsets; generated modules may contain local build paths.
 
 The recorded build's module SHA-256 is
-`b56f5fb7b2ece286b73f4e7b6c618f76a4a0cb69a8cdce43154b7be8b70c67d2`.
+`328268e1783791bd5078d95d2205ac85ffc98544b77d387139d9eaf25644a170`.
 This is an evidence identifier, not a reproducible-build claim: path and build
 metadata can change it. Each run writes `module-report.json` with source,
 configuration, artifact hashes, checked declarations, and import results.
@@ -157,8 +159,16 @@ DMA concurrency, and device safety remain unproven. Required remaining work:
    incomplete for the board even after these acquisition components.
 
 When built with `CONFIG_DREEM_EEG_SDMA`, the adapter additionally imports
-`dreem_sdma_status()` from that provider. It checks for faults around waits,
-before copying samples, and before open/start/test-signal operations. Faults
-propagate to the caller and shut down an already initialized ADC. Seven new
-compiled ARM cases exercise these paths, for 71 cases in that configuration;
-the 64 stock-interface cases still pass with the option absent.
+`dreem_sdma_status()` and `dreem_sdma_control()`. It claims exclusive ownership
+before initialization, requires a confirmed pause before SPI operations or ring
+reset, and resumes the provider only after configuring the ADC. It requires the
+new managed program; a legacy-script provider is rejected before ADC I/O.
+It checks faults around waits, before copying samples, and before controls.
+An unacknowledged stop leaves the instance unusable and retains its controller
+PM reference, GPIO/mapping/device ownership, and one additional instance
+reference until reboot. Close/remove cannot issue SPI or power-off commands
+after such a failure. A normal acknowledged stop permits ordinary cleanup.
+
+This configuration passes 78 compiled ARM cases; the stock-interface build
+still passes 64. The [provider documentation](sdma-provider.md) owns the control
+protocol details and the connected ADC/provider/SDMA pipeline verification.

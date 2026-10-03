@@ -168,10 +168,12 @@ success-only publication in the replacement loader.
 The research integration now supplies bounded placement, channel reservation,
 context loading, interrupt dispatch, and reader fault handling. It pins DMA
 storage after submission and refuses system sleep while enabled. Normal DMA
-quiescence/reclamation, coordinated restart, and suspend/resume remain unfinished.
+reclamation, context reset after faults, and suspend/resume remain unfinished.
 A [source-built replacement DMA program](sdma-program.md) now supplies the
 cooperative pause/acknowledgement protocol needed for that work. Its control
 allocation and first-frame behavior differ from stock; it must not be loaded
-through the current four-byte-counter trigger. Host integration remains open.
+through the legacy four-byte-counter trigger. The provider now loads its
+assembled copy through trigger value `2` and coordinates pause/resume with the
+ADC; see [managed integration and connected tests](sdma-provider.md).
 The complete board kernel additionally needs the other Dreem-specific drivers
 and board behavior identified in [source findings](source-findings.md).

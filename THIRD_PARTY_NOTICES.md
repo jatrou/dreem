@@ -60,7 +60,8 @@ reconstruct and verify the observed kernel channel-context and interrupt
 progress behavior. Original vendor code, recovered assembly, and compiled
 firmware are not included in these files.
 
-`development/build_sdma_kernel.py` and `development/verify_sdma_provider.py`
+`development/build_sdma_kernel.py`, `development/verify_sdma_provider.py`,
+and `development/verify_sdma_pipeline.py`
 use GPL-2.0-only. The overlay script `development/apply_sdma_overlay.py` uses
 GPL-2.0-or-later and retains small matching excerpts from NXP's `imx-sdma.c`,
 copyright 2010 Sascha Hauer/Pengutronix and 2004-2016 Freescale Semiconductor.

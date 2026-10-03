@@ -19,6 +19,8 @@ from unicorn.arm_const import (UC_CPU_ARM_CORTEX_A7, UC_ARM_REG_R0, UC_ARM_REG_R
                                UC_ARM_REG_LR, UC_ARM_REG_PC)
 from verify_adc_module import Module, signed, require
 from sdma_disassemble import decode
+from sdma_program_model import Machine as ProgramMachine
+from sdma_assemble import assemble
 
 ENGINE, DEVICE, CCB, CONTEXT, BD, DRVDATA = (0x30000000, 0x30004000, 0x30005000,
                                            0x30006000, 0x30006800, 0x30006A00)
@@ -104,6 +106,7 @@ class Machine:
         self.allocations, self.clocks = {}, {IPG: 0, AHB: 0}
         self.next_allocation, self.device_refs, self.locked, self.preempt = 0x30010000, 0, False, 0
         self.failure, self.sleeps, self.command_count = None, 0, 0
+        self.program_code, self.program = None, None
         self.registers = {4: 0, 0x1C: 0, 0x38: 0, 0x20C: 0x20, 0x108: 5}
         self.eeg = ENGINE + module.members["sdma_engine"]["eeg"]
         self.field("device", DEVICE, "driver_data", ENGINE)
@@ -122,6 +125,7 @@ class Machine:
         self.ef("irq", 42)
         self.ef("pc", 0x1800)
         self.ef("firmware_done", 1, 1)
+        self.put(self.symbols["dreem_sdma_owner"], ENGINE)
         cpu.mem_write(USER, b"1\0" + bytes(2046))
         for name in ("dma_allocate", "dma_free", "delay"):
             self.stubs[stub] = name
@@ -205,7 +209,9 @@ class Machine:
         elif name == "usleep_range":
             require((a, b) == (100, 200), "unexpected readiness wait")
             self.sleeps += 1
-            if self.failure != "initialization" and self.sleeps >= 2:
+            if self.ef("managed", width=1):
+                self.pump()
+            elif self.failure != "initialization" and self.sleeps >= 2:
                 self.registers[0x1C] &= ~2  # done 4: clear EP, no interrupt.
                 if self.failure == "startup_fault":
                     self.ef("error", -75)
@@ -236,6 +242,8 @@ class Machine:
 
     def read_mmio(self, cpu, access, address, size, value, _):
         require(size == 4 and all(n > 0 for n in self.clocks.values()), "MMIO read without clocks")
+        if address == REGS + 0x1C and self.ef("managed", width=1):
+            self.pump()
         self.put(address, self.registers.get(address - REGS, 0))
 
     def write_mmio(self, cpu, access, address, size, value, _):
@@ -251,14 +259,51 @@ class Machine:
                 descriptor = bytes(cpu.mem_read(BD, 12))
                 self.descriptors.append(descriptor)
                 self.command_count += 1
+                mode, source, destination = struct.unpack("<3I", descriptor)
+                if mode >> 24 == 4:
+                    self.program_code = bytes(cpu.mem_read(source - 0x10000000, (mode & 0xFFFF) * 2))
                 if self.failure != "channel0":
                     self.registers[4] |= 1
             else:
                 require(value == 2, "unexpected channel start")
                 require(self.ef("armed", width=1), "started before IRQ state was armed")
-                require(self.u32(self.symbols["sdma_ads_user_buffer"]) == 0, "published before initialization")
+                if self.ef("managed", width=1):
+                    if self.program is None:
+                        context = struct.unpack("<32I", cpu.mem_read(CONTEXT, 128))
+                        require(self.program_code == assemble(Path(__file__).with_name("sdma_acquire.asm").read_text())[0],
+                                "managed loader uploaded different program bytes")
+                        self.program = ProgramMachine(self.program_code, origin=context[0],
+                                                      ring_base=context[2], control_base=context[4])
+                        self.program.r = list(context[2:10])
+                else:
+                    require(self.u32(self.symbols["sdma_ads_user_buffer"]) == 0, "published before initialization")
         elif offset != 8:
             self.registers[offset] = value
+
+    def pump(self, steps=128):
+        if self.program is None or self.failure == "initialization":
+            return
+        if self.failure in ("stale_ack", "ack_with_ep", "ep_without_ack"):
+            if self.failure == "stale_ack":
+                self.put(self.ef("counter") + 8, self.ef("request") - 2)
+                self.registers[0x1C] &= ~2
+            elif self.failure == "ack_with_ep":
+                self.put(self.ef("counter") + 8, self.ef("request"))
+            else:
+                self.registers[0x1C] &= ~2
+            return
+        ring, control = self.ef("ring"), self.ef("counter")
+        self.program.mem[:] = bytes(self.uc.mem_read(ring, 1024)) + bytes(self.uc.mem_read(control, 64))
+        self.program.ep = bool(self.registers[0x1C] & 2)
+        notifications = len(self.program.irqs)
+        for _ in range(steps):
+            if not self.program.step():
+                break
+        self.uc.mem_write(ring, bytes(self.program.mem[:1024]))
+        self.uc.mem_write(control, bytes(self.program.mem[1024:]))
+        self.registers[0x1C] = (self.registers[0x1C] & ~2) | (2 if self.program.ep else 0)
+        if len(self.program.irqs) != notifications:
+            self.registers[4] |= 2
 
     def call(self, name, *args):
         for register, value in zip((UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3), args):
@@ -272,7 +317,9 @@ class Machine:
     def script(self, count=106):
         return self.call("dreem_user_script_store", DEVICE, 0, USER, count)
 
-    def start(self):
+    def start(self, managed=False):
+        if managed:
+            self.uc.mem_write(USER, b"2\0")
         return self.call("dreem_trigger_store", DEVICE, 0, USER, 1)
 
     def interrupt(self, count, mask=2):
@@ -292,6 +339,105 @@ class Machine:
         self.field("firmware", FW, "data", FW_DATA)
         self.field("firmware", FW, "size", changes.get("file_size", len(data)))
         return self.call("sdma_load_firmware", FW, ENGINE)
+
+
+def verify_managed(module):
+    results = []
+    def ready():
+        m = Machine(module)
+        require(m.start(managed=True) == 1, "managed startup failed")
+        require(m.ef("paused", width=1) and m.ef("request") == 2 and
+                m.u32(m.ef("counter") + 8) == 2 and m.registers[0x104] == 0 and
+                not m.notifications and not m.program.tx, "startup did not establish idle ownership")
+        require(sorted(size for _, size, _ in m.allocations.values()) == [64, 1024],
+                "managed buffers have wrong sizes")
+        return m
+
+    m = ready()
+    require(m.call("dreem_sdma_control", 2) == -1, "unclaimed start permitted")
+    require(m.call("dreem_sdma_control", 0) == 0 and m.call("dreem_sdma_control", 0) == -16,
+            "consumer claim is not exclusive")
+    require(m.call("dreem_sdma_control", 99) == -22, "invalid command accepted")
+    require(m.call("dreem_sdma_control", 2) == 0 and m.call("dreem_sdma_control", 2) == -16,
+            "duplicate resume permitted")
+    require(m.registers[0x20C] == 0x22, "resume changed another event consumer")
+    m.program.frames.append((1, 2, 3, 4))
+    m.pump()
+    require(m.call("sdma_int_handler", 42, ENGINE) == 1 and m.notifications == [1],
+            "first managed frame was suppressed")
+    require(m.call("dreem_sdma_control", 1) == 0 and m.ef("request") == 4 and
+            m.registers[0x20C] == 0x20, "pause failed or changed another event consumer")
+    sleeps = m.sleeps
+    require(m.call("dreem_sdma_control", 1) == 0 and m.sleeps == sleeps,
+            "already paused consumer unexpectedly reawakened DMA")
+    require(m.call("dreem_sdma_control", 3) == 0 and not m.ef("claimed", width=1), "release failed")
+    require(m.call("dreem_sdma_control", 0) == 0 and m.call("dreem_sdma_control", 2) == 0,
+            "reacquire/resume failed")
+    m.program.frames.append((5, 6, 7, 8))
+    m.pump()
+    # Do not dispatch the pending IRQ: PAUSE must account for it itself.
+    require(m.call("dreem_sdma_control", 1) == 0 and m.notifications == [1, 2] and
+            m.u32(m.ef("counter")) == 2, "pause lost a pending frame or reset the producer")
+    require(bytes(m.uc.mem_read(m.ef("ring"), 32)) == struct.pack("<8I", *range(1, 9)),
+            "resume overwrote the previous ring slot")
+    results.extend(("managed source bytes and padded control context", "idle startup without SPI access",
+                    "exclusive consumer claim", "unclaimed/duplicate/unknown control rejection",
+                    "first managed frame delivered", "event updates preserve other channels",
+                    "idempotent pause", "release and reacquire", "pending IRQ accounted at pause",
+                    "resume preserves producer and ring offset"))
+
+    for failure in (("allocation", 212), ("allocation", 64), ("allocation", 1024),
+                    ("clock", IPG), ("clock", AHB), "channel0", "initialization"):
+        m = Machine(module)
+        m.failure = failure
+        require(m.start(managed=True) < 0 and not m.u32(m.symbols["sdma_ads_user_buffer"]),
+                "failed managed startup published memory")
+        if failure == "initialization":
+            require(m.sleeps == 1000 and len(m.allocations) == 2 and m.device_refs == 1,
+                    "managed initialization timeout reclaimed state or exceeded bound")
+        elif failure != "channel0":
+            require(not m.allocations and not any(m.clocks.values()), "pre-DMA startup failure leaked")
+        results.append("managed startup failure " + str(failure))
+
+    for failure in ("initialization", "stale_ack", "ack_with_ep", "ep_without_ack"):
+        m = ready()
+        require(m.call("dreem_sdma_control", 0) == 0 and m.call("dreem_sdma_control", 2) == 0,
+                "timeout fixture failed")
+        old = dict(m.allocations)
+        m.failure = failure
+        sleeps = m.sleeps
+        require(m.call("dreem_sdma_control", 1) == -110 and m.sleeps - sleeps == 1000,
+                "pause accepted incomplete/stale proof: " + failure)
+        require(m.allocations == old and all(n == 1 for n in m.clocks.values()) and
+                not m.ef("paused", width=1) and m.ef("claimed", width=1),
+                "uncertain stop released DMA resources")
+        require(m.call("dreem_sdma_control", 3) == -110 and m.call("dreem_sdma_control", 2) == -110,
+                "timeout allowed release/resume")
+        results.append("pause requires fresh ACK and EP clear: " + failure)
+
+    for fault_word in (0, 1):
+        m = ready()
+        m.call("dreem_sdma_control", 0)
+        m.call("dreem_sdma_control", 2)
+        m.put(m.ef("counter") + 12, fault_word)
+        m.registers[0x1C] &= ~2
+        m.registers[4] = 2
+        require(m.call("sdma_int_handler", 42, ENGINE) == 1 and m.call("dreem_sdma_status") == -5,
+                "unexpected managed halt did not latch an error")
+        require(m.call("dreem_sdma_control", 1) == -5, "faulted DMA falsely acknowledged pause")
+        results.append("fault notification with readable fault word=" + str(fault_word))
+
+    m = ready()
+    m.call("dreem_sdma_control", 0)
+    m.ef("request", 0xFFFFFFFE)
+    require(m.call("dreem_sdma_control", 2) == -75 and m.ef("paused", width=1),
+            "generation exhaustion wrapped or activated DMA")
+    results.append("generation exhaustion stays paused")
+    m = Machine(module)
+    require(m.script() == 106 and m.start() == 1 and m.call("dreem_sdma_control", 0) == -95,
+            "managed consumer accepted the legacy stop protocol")
+    results.append("legacy script rejected by managed consumer API")
+    return results
 
 
 def verify(path, script_path):
@@ -459,6 +605,7 @@ def verify(path, script_path):
                 "failed base firmware published its address table")
         require(m.calls.count("release_firmware") == 1, "failed base firmware not released")
         results.append("base firmware upload failure " + str(failure))
+    results.extend(verify_managed(module))
     return {"provider_object_sha256": hashlib.sha256(module.binary).hexdigest(),
             "passed_cases": len(results), "cases": results, "runtime_qualified": False,
             "limits": "MMIO, coherent DMA, IRQ dispatch and kernel calls are models; no scheduler races or physical SDMA execution are verified"}

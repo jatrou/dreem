@@ -87,6 +87,7 @@ def build(source, baseline, stock, output, compiler):
     files = {"ads129x_init.c": here / "ads129x_init.c",
              "ads129x_init.h": here / "ads129x_init.h",
              "adc_linux.c": here / "kernel" / "adc_linux.c",
+             "sdma_eeg_api.h": here / "kernel" / "sdma_eeg_api.h",
              "Makefile": here / "kernel" / "Makefile"}
     for name, path in files.items():
         shutil.copyfile(path, module / name)

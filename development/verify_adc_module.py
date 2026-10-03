@@ -77,6 +77,10 @@ class Machine:
         self.failure = None
         self.provider_error = 0
         self.provider_fault_on_wait = False
+        self.dma_claimed, self.dma_paused = True, False
+        self.control_failure, self.run_fault = None, False
+        self.control_calls = []
+        self.provider_callback = None
         self.compatible, self.resource_start = True, SPI
         self.allocated, self.registered, self.tracking = False, False, False
         self.gpios, self.mappings, self.device_refs = set(), set(), 0
@@ -178,6 +182,10 @@ class Machine:
             self.field("ads_sdma_state", state, name, value)
         for name in ("opened", "initialized", "running"):
             self.field("dreem_adc", ADC, name, 1, width=1)
+        self.field("kref", ADC + module.members["dreem_adc"]["ref"], "refcount", 2)
+        self.managed = "dreem_sdma_control" in self.symbols
+        if self.managed:
+            self.field("dreem_adc", ADC, "dma_claimed", 1, width=1)
         thread = STACK + 0xE000
         self.field("thread_info", thread, "addr_limit", 0x7FFFFFFF)
         self.field("thread_info", thread, "task", TASK)
@@ -187,6 +195,7 @@ class Machine:
         for start, end in ((SPI, SPI + 24), (CLOCK, CLOCK + 3), (EVENT, EVENT + 3)):
             cpu.hook_add(UC_HOOK_MEM_READ, self.read_mmio, begin=start, end=end)
             cpu.hook_add(UC_HOOK_MEM_WRITE, self.write_mmio, begin=start, end=end)
+        cpu.hook_add(UC_HOOK_MEM_WRITE, self.ring_write, begin=RING, end=RING + 1023)
 
     def put(self, address, value):
         self.uc.mem_write(address, struct.pack("<I", value & 0xFFFFFFFF))
@@ -209,8 +218,36 @@ class Machine:
         a, b, c = (cpu.reg_read(r) for r in (UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2))
         result = 0
         self.calls.append(name)
-        if name == "dreem_sdma_status":
+        if name in ("dreem_sdma_status", "dreem_sdma_control") and self.provider_callback:
+            result = self.provider_callback(name, a)
+        elif name == "dreem_sdma_status":
             result = self.provider_error
+        elif name == "dreem_sdma_control":
+            self.control_calls.append(a)
+            require(not self.spi_locked, "DMA handoff attempted while SPI bus locked")
+            if self.control_failure == a:
+                result = -110 if a == 1 else -95
+            elif a == 0:
+                result = self.provider_error or (-16 if self.dma_claimed else 0)
+                if not result:
+                    self.dma_claimed, self.dma_paused = True, True
+            elif not self.dma_claimed:
+                result = -1
+            elif a in (1, 3):
+                result = self.provider_error if not self.dma_paused else 0
+                if not result:
+                    self.dma_paused = True
+                    self.model.registers[EVENT] = 0
+                    if a == 3:
+                        self.dma_claimed = False
+            elif a == 2:
+                require(self.dma_paused, "resumed an unpaused provider")
+                self.dma_paused = False
+                self.model.registers[EVENT] = 2
+                if self.run_fault:
+                    result = self.provider_error = -5
+            else:
+                raise ValueError("unexpected provider command")
         elif name == "of_machine_is_compatible":
             compatible = b"fsl,imx6ull-femto\0"
             require(bytes(cpu.mem_read(a, len(compatible))) == compatible, "wrong machine gate")
@@ -351,14 +388,22 @@ class Machine:
         self.model.io(WRITE, address, value)
 
     def check_mmio(self, address):
+        if self.managed:
+            require(self.dma_paused, "CPU touched SPI before DMA pause acknowledgement")
+            require(address != EVENT, "ADC bypassed provider event ownership")
         if self.tracking:
             base = SPI if SPI <= address <= SPI + 24 else address
             require(base in self.mappings, "access to unowned MMIO")
             require(self.field("dev_pm_info", self.power, "usage_count") > 0,
                     "MMIO access without a controller PM reference")
 
+    def ring_write(self, cpu, access, address, size, value, _):
+        if self.managed:
+            require(self.dma_paused, "CPU reset the ring while DMA was running")
+
     def prepare_probe(self, enabled=True):
         self.tracking = True
+        self.dma_claimed, self.dma_paused = False, True
         self.uc.mem_write(ADC, bytes(self.module.sizes["dreem_adc"]))
         self.uc.mem_write(self.symbols["sdma_hardware_confirmed"], bytes([enabled]))
 
@@ -633,6 +678,75 @@ def verify_test_signal(module):
     return results
 
 
+def verify_managed_lifecycle(module):
+    results = []
+    def opened():
+        m = Machine(module)
+        m.prepare_probe()
+        require(m.call("adc_probe", SPI_DEVICE) == 0 and m.open() == 0, "managed fixture open failed")
+        require(m.dma_paused and m.dma_claimed and m.control_calls[0] == 0,
+                "ADC setup did not follow exclusive idle claim")
+        return m
+
+    for operation in ("stop", "close", "remove", "read fault", "resume fault"):
+        m = opened()
+        if operation == "resume fault":
+            m.run_fault = True
+            ret = m.call("adc_ioctl", FILE, 1, 0)
+            require(ret == -5, "partial resume error was hidden")
+        else:
+            require(m.call("adc_ioctl", FILE, 1, 0) == 0, "managed fixture start failed")
+            length = len(m.model.trace)
+            if operation == "read fault":
+                m.provider_error = -75
+                ret = m.call("adc_read", FILE, USER, 16, 0)
+                require(ret == -75, "read fault was hidden")
+            else:
+                m.control_failure = 1
+                if operation == "stop":
+                    ret = m.call("adc_ioctl", FILE, 0, 0)
+                elif operation == "close":
+                    ret = m.call("adc_close", 0, FILE)
+                else:
+                    ret = m.call("adc_remove", SPI_DEVICE)
+                require(ret == (0 if operation == "remove" else -110), "stop failure return differs")
+            require(len(m.model.trace) == length, "unacknowledged stop performed ADC I/O")
+        require(m.field("dreem_adc", ADC, "poisoned", width=1) and m.dma_claimed and
+                m.field("dev_pm_info", m.power, "usage_count") == 1,
+                "uncertain stop released the provider or controller clock")
+        require(not m.field("dreem_adc", ADC, "running", width=1) and 3 not in m.control_calls,
+                "uncertain stop permitted new acquisition/release")
+        if operation != "remove":
+            require(m.call("adc_suspend", SPI_DEVICE) == -16, "poisoned instance allowed sleep")
+            require(m.call("adc_remove", SPI_DEVICE) == 0, "poisoned remove failed")
+        if operation != "close":
+            require(m.call("adc_close", 0, FILE) == -5, "poisoned close touched hardware or hid state")
+        require(m.resource_state() == (True, False, 3, 3, 1, 1) and m.references() == 1,
+                "uncertain DMA resources did not remain pinned exactly once")
+        results.append("unacknowledged DMA handoff retains resources: " + operation)
+
+    m = Machine(module)
+    m.prepare_probe()
+    require(m.call("adc_probe", SPI_DEVICE) == 0, "legacy gate fixture failed")
+    m.control_failure = 0
+    require(m.open() == -95 and not m.model.trace and not m.dma_claimed and
+            m.field("dev_pm_info", m.power, "usage_count") == 0,
+            "unsupported provider touched hardware")
+    require(m.call("adc_remove", SPI_DEVICE) == 0, "unsupported-provider cleanup failed")
+    results.append("unsupported/legacy control protocol rejected before ADC I/O")
+    m = opened()
+    require(m.call("adc_ioctl", FILE, 1, 0) == 0 and not m.dma_paused, "managed resume failed")
+    require(m.call("adc_ioctl", FILE, 0, 0) == 0 and m.dma_paused, "managed stop failed")
+    require(m.call("adc_ioctl", FILE, 5, 0) == 0 and m.dma_paused, "test waveform escaped pause")
+    require(m.call("adc_ioctl", FILE, 1, 0) == 0 and not m.dma_paused, "managed restart failed")
+    require(m.call("adc_close", 0, FILE) == 0 and not m.dma_claimed and m.dma_paused,
+            "normal close failed to release quiescent provider")
+    require(m.call("adc_remove", SPI_DEVICE) == 0 and m.resource_state() == (False, False, 0, 0, 0, 0),
+            "normal coordinated lifecycle leaked resources")
+    results.append("claim/init/start/pause/test/restart/close/release ordering")
+    return results
+
+
 def verify(path):
     module = Module(path)
     results = []
@@ -702,7 +816,10 @@ def verify(path):
     machine.model.stalled = True
     require(machine.call("adc_ioctl", FILE, 0, 0) == -110, "stalled stop not bounded")
     require(machine.field("dreem_adc", ADC, "initialized", width=1) == 0, "stalled stop retained initialized state")
-    require(machine.model.trace[-3:] == [[WRITE, EVENT, 0, 0], [GPIO_SET, 35, 0, 0], [GPIO_SET, 90, 1, 0]],
+    cleanup = [[GPIO_SET, 35, 0, 0], [GPIO_SET, 90, 1, 0]]
+    if not machine.managed:
+        cleanup.insert(0, [WRITE, EVENT, 0, 0])
+    require(machine.model.trace[-len(cleanup):] == cleanup,
             "stalled stop did not shut down")
     results.append("stalled stop shuts down and invalidates initialization")
     results.extend(verify_lifecycle(module))
@@ -728,10 +845,14 @@ def verify(path):
             require(ret == -75, "provider fault was not propagated: " + case)
             require("__copy_to_user" not in machine.calls, "provider fault exposed a sample")
             if case != "open":
-                machine.require_power_off()
+                require(not machine.model.trace or all(op not in (READ, WRITE, GPIO_OUTPUT, GPIO_SET)
+                        for op, _, _, _ in machine.model.trace), "uncertain DMA stop touched ADC")
+                require(machine.field("dreem_adc", ADC, "poisoned", width=1),
+                        "unacknowledged provider fault did not retain resources")
                 require(not machine.field("dreem_adc", ADC, "initialized", width=1),
                         "provider fault retained ADC initialization")
             results.append("provider fault: " + case)
+        results.extend(verify_managed_lifecycle(module))
     return {"module_sha256": hashlib.sha256(module.binary).hexdigest(),
             "passed_cases": len(results), "cases": results,
             "runtime_qualified": False,

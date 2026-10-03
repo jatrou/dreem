@@ -26,7 +26,7 @@ reconstructed components, not the complete original source.
 Independent SDMA primitives construct the channel context and handle producer
 progress; their native and ARM builds match 399 stock cases. They are now
 integrated into an [experimental Linux provider](sdma-provider.md), which links
-into a complete NXP kernel build and passes 64 compiled ARM cases. The provider
+into a complete NXP kernel build and passes 89 compiled ARM cases. The provider
 implements checked allocation, bounded loading, initialization, and IRQ wiring.
 Runtime activation is disabled by default; power management and physical
 qualification remain unfinished. See [DMA findings](sdma-findings.md).
@@ -34,8 +34,10 @@ qualification remain unfinished. See [DMA findings](sdma-findings.md).
 A [new source-built acquisition program](sdma-program.md) now implements a
 cooperative pause protocol with explicit DMA completion checks. Its 106 SDMA
 instructions assemble identically with two assemblers and pass 933 modeled
-execution cases. It uses a new padded control allocation and is not compatible
-with the current trigger; Linux integration and device qualification remain.
+execution cases. The Linux provider now loads it with a padded control allocation
+and coordinates exclusive ownership and pause/resume with the ADC. A connected
+test of the compiled ADC/provider and assembled program passes 76 cases,
+including delivered frames across a ring wrap. Device qualification remains.
 
 The SDMA-path ADC initializer is also reconstructed in C. Its host and ARM
 builds match the original kernel's modeled I/O traces in eight scenarios,
@@ -59,7 +61,8 @@ NXP headers, reproduces the three shared-object CRCs, and matches all 42 stock
 imports. Its compiled interfaces and lifecycle paths pass 64 emulated cases,
 including resource cleanup and modeled PM reference accounting. It is not loaded
 or qualified on the headset. A second build against the reconstructed provider
-matches all 43 imports and passes 71 cases, including provider-fault shutdown.
+matches all 44 imports and passes 78 cases, including resource retention when
+a DMA stop cannot be confirmed. That configuration requires the managed script.
 
 The adapter also reconstructs the stock internal test-signal command. Three
 ordered-I/O comparisons match the stock ARM routine, and faults at all ten SPI
