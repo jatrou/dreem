@@ -78,6 +78,10 @@ The [recording-event reconstruction](algo-findings.md) adds a verified parser
 for the 28 recognized `algo.data` formats and a native sensor-health monitor.
 Recovery changes the recorder counter independently of native EEG row writes;
 the monitor preserves counters without assuming cross-file or wall-clock alignment.
+The [health-aware session report](session-motion.md) now applies the reconstructed
+normal-recording cadence after checking start/stop events, metadata and sample
+counts. It explicitly rejects recovery boundaries that do not identify a persisted
+motion offset.
 
 ## Kernel export verification
 

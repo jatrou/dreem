@@ -56,6 +56,13 @@ synthetic verification code. They contain no extracted vendor instructions or
 decompiler output. Optional comparisons require a privately supplied executable;
 see [recording-event findings](development/algo-findings.md).
 
+`development/session_motion.c`, `development/verify_recording_cadence.py`, and
+`tests/test_session_motion.py` also use Apache-2.0. They independently implement
+and verify normal-recording alignment and health-aware summaries. Comparisons
+load only selected code from the privately supplied executable; no original
+instructions, decompiler output or personal recordings are bundled. See
+[session motion findings](development/session-motion.md).
+
 ## ADC driver reconstruction
 
 `development/ads129x_init.c`, `development/ads129x_init.h`,

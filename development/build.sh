@@ -21,3 +21,10 @@ ${ARM_CC:-arm-linux-gnueabihf-gcc} -std=c11 -O2 -Wall -Wextra -Werror \
     -Wl,--build-id=sha1 -o build/algo_health.arm algo_health.c algo_events.c
 arm-linux-gnueabihf-readelf -h build/algo_health.arm
 sha256sum build/algo_health.host build/algo_health.arm
+${HOST_CC:-cc} -std=c11 -O2 -Wall -Wextra -Werror \
+    -o build/session_motion.host session_motion.c algo_events.c -lm
+${ARM_CC:-arm-linux-gnueabihf-gcc} -std=c11 -O2 -Wall -Wextra -Werror \
+    -marm -mcpu=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -static \
+    -Wl,--build-id=sha1 -o build/session_motion.arm session_motion.c algo_events.c -lm
+arm-linux-gnueabihf-readelf -h build/session_motion.arm
+sha256sum build/session_motion.host build/session_motion.arm

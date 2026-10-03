@@ -142,7 +142,8 @@ boundaries, partial appends, file replacement/removal/shrink, and invalid
 inputs. The nine existing EEG/motion feature tests also pass. These are offline
 format and file-handling checks, not physical sensor or recording qualification.
 
-The monitor exposes health events but does not yet join them to EEG/motion
-rows. Cross-file alignment, wall-clock reconstruction, device-side resource
-and recording-fidelity checks, additional code semantics, and physical sensor
-qualification remain open.
+The event monitor preserves raw counters. A separate [session motion report](session-motion.md)
+now joins health to motion rows for completed normal recordings that pass its
+cross-file consistency checks. Recovery-segment alignment, wall-clock reconstruction,
+device-side resource and recording-fidelity checks, additional code semantics,
+and physical sensor qualification remain open.

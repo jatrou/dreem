@@ -57,8 +57,10 @@ with zeros before writing, with a separate health transition. Hardware-version
 the same check. Consequently, a finite zero row is not sufficient evidence of
 valid physical zero acceleration. The native motion file alone cannot recover
 the missing validity information. The separate [recording-event monitor](algo-findings.md)
-now decodes the reported health transitions; joining their counters to motion
-rows across recovery boundaries remains unfinished.
+now decodes the reported health transitions. The [session motion report](session-motion.md)
+joins those transitions to completed normal recordings and excludes reported-bad
+or unknown rows from its statistics. Alignment across recovery boundaries remains
+unfinished.
 
 ## Build and use
 
@@ -128,7 +130,7 @@ unchanged in the fixed-file comparison. These checks establish arithmetic,
 format handling and file-follow behavior, not device-side resource use or
 recording fidelity.
 
-Device-side trials, health-event alignment to motion rows, clock/timestamp alignment,
+Device-side trials, health-event alignment across recovery, clock/timestamp alignment,
 physical orientation and calibration, and electrical qualification for an added
 sensor remain. The existing [sensor and pad map](source-findings.md#existing-sensor-interfaces)
 still supplies only candidate interfaces, not a verified expansion pinout.

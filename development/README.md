@@ -84,7 +84,9 @@ The [recording-event monitor](algo-findings.md) decodes `algo.data`, including
 motion/optical health and recovery markers. Its host and ARM builds match all
 28 recognized event formats in the original writer/replay reader. It preserves
 raw counters and clears health assumptions at recovery/counter discontinuities;
-cross-file sample alignment remains unfinished.
+the [session motion report](session-motion.md) additionally aligns completed
+normal recordings after cross-file checks and excludes reported-bad/unknown
+motion samples. Recovery-segment alignment remains unfinished.
 
 Independent SDMA primitives construct the channel context and handle producer
 progress; their native and ARM builds match 399 stock cases. They are now
@@ -331,7 +333,7 @@ sh development/build.sh
   tests.test_firmware_development tests.test_kernel_exports \
   tests.test_compare_exports tests.test_sdma_disassemble \
   tests.test_eeg_samples tests.test_eeg_quality tests.test_motion_quality \
-  tests.test_algo_health -v
+  tests.test_algo_health tests.test_session_motion -v
 ```
 
 The suite covers malformed/truncated input, archive link and duplicate rejection,
