@@ -23,6 +23,10 @@ the saved counter rules, disabled automatic lowering, and modified high-rate
 clock sequence. It builds into the kernel and passes 617 modeled checks,
 including comparisons with the saved ARM routines and negative controls against
 the unmodified NXP kernel. Runtime activation remains off by default.
+It now includes the recorder's `/dev/dreem_ddr` control interface, with 47
+compiled checks for command behavior and registration cleanup. The 1,764-byte
+DDR3 transition routine matches public NXP assembly exactly after applying its
+one declared relocation; the surrounding DDR settings still need verification.
 
 The EEG DMA program can now be recovered into assembly that reassembles
 exactly, and an independent raw-sample decoder matches the recorder's ARM

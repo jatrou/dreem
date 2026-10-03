@@ -52,5 +52,5 @@ def apply(source):
                      '\t  also requires busfreq_imx.dreem_busfreq=1 and a Femto device tree.\n')
     with (folder / "Makefile").open("a") as stream:
         stream.write('\nifeq ($(CONFIG_DREEM_BUSFREQ),y)\nCFLAGS_busfreq-imx.o += -g\nendif\n')
-    shutil.copyfile(Path(__file__).resolve().parent / "kernel/busfreq_dreem.inc",
-                    folder / "busfreq_dreem.inc")
+    for name in ("busfreq_dreem.inc", "ddr_linux.inc"):
+        shutil.copyfile(Path(__file__).resolve().parent / "kernel" / name, folder / name)

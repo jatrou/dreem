@@ -39,6 +39,17 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
     if "CONFIG_OF_DYNAMIC=y" in config.splitlines():
         raise ValueError("provider requires static device tree")
     config = config.replace("CONFIG_LOCALVERSION_AUTO=y", "# CONFIG_LOCALVERSION_AUTO is not set")
+    here = Path(__file__).resolve().parent
+    files = [here / "ads129x_init.c", here / "ads129x_init.h",
+             here / "kernel/adc_linux.c", here / "kernel/sdma_eeg_api.h", here / "kernel/Makefile"]
+    inputs = [*files, here / "sdma_eeg.c", here / "sdma_eeg.h",
+              here / "kernel/sdma_eeg_linux.h", here / "kernel/sdma_eeg_linux.inc",
+              here / "sdma_acquire.asm", here / "sdma_assemble.py", here / "sdma_disassemble.py",
+              here / "apply_sdma_overlay.py", Path(__file__).resolve()]
+    if busfreq:
+        inputs += [here / "apply_busfreq_overlay.py", here / "kernel/busfreq_dreem.inc",
+                   here / "kernel/ddr_linux.inc"]
+    source_hashes = {str(p.relative_to(here)): sha(p) for p in inputs}
     output.mkdir(mode=0o700)
     tree, kernel, module = (output / name for name in ("source", "kernel", "module"))
     for folder in (tree, kernel, module):
@@ -76,9 +87,6 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
         for name in SHARED:
             if symbols.get(name) != stock_exports[name][0]:
                 raise ValueError("provider export does not match stock: " + name)
-        here = Path(__file__).resolve().parent
-        files = [here / "ads129x_init.c", here / "ads129x_init.h",
-                 here / "kernel/adc_linux.c", here / "kernel/sdma_eeg_api.h", here / "kernel/Makefile"]
         for path in files:
             shutil.copyfile(path, module / path.name)
         print("Building ADC module against the real provider", flush=True)
@@ -89,6 +97,8 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
         imports = module_versions(ELFFile(stream).get_section_by_name("__versions").data())
     if not {"dreem_sdma_status", "dreem_sdma_control"}.issubset(imports) or any(symbols.get(n) != c for n, c in imports.items()):
         raise ValueError("ADC imports do not match integrated kernel")
+    if any(sha(here / name) != digest for name, digest in source_hashes.items()):
+        raise ValueError("research source changed during the build; rebuild from stable inputs")
     report = {"nxp_revision": revision, "stock_kernel_raw_sha256": RAW_HASH,
               "baseline_config_sha256": sha(baseline / ".config"),
               "build_config_sha256": sha(kernel / ".config"),
@@ -98,17 +108,10 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
               "stock_shared_crcs": {n: f"{symbols[n]:08x}" for n in SHARED},
               "adc_matched_imports": len(imports), "runtime_enabled_by_default": False,
               "runtime_qualified": False, "installed": False,
-              "source_files": {str(p.relative_to(here)): sha(p) for p in
-                               [*files, here / "sdma_eeg.c", here / "sdma_eeg.h",
-                                here / "kernel/sdma_eeg_linux.h", here / "kernel/sdma_eeg_linux.inc",
-                                here / "sdma_acquire.asm", here / "sdma_assemble.py", here / "sdma_disassemble.py",
-                                here / "apply_sdma_overlay.py", Path(__file__).resolve()]}}
+              "source_files": source_hashes}
     if busfreq:
         report["busfreq_object_sha256"] = sha(kernel / "arch/arm/mach-imx/busfreq-imx.o")
         report["busfreq_runtime_enabled_by_default"] = False
-        report["source_files"].update({str(p.relative_to(here)): sha(p) for p in
-                                      [here / "apply_busfreq_overlay.py",
-                                       here / "kernel/busfreq_dreem.inc"]})
     (output / "provider-build.json").write_text(json.dumps(report, indent=2) + "\n")
     return report
 

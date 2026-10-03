@@ -49,7 +49,7 @@ def require(condition, message):
 
 
 class Image:
-    def __init__(self, path, stock=False):
+    def __init__(self, path, stock=False, extra_routines=()):
         self.binary = path.read_bytes()
         elf = ELFFile(io.BytesIO(self.binary))
         require(elf.elfclass == 32 and elf.little_endian and elf['e_machine'] == 'EM_ARM',
@@ -70,7 +70,7 @@ class Image:
             key=lambda a: abs(a - self.symbols['high_bus_count']))
         addresses = sorted(set(s['st_value'] for s in symbols))
         self.ranges = []
-        for name in ENTRIES + INTERNAL:
+        for name in ENTRIES + INTERNAL + tuple(extra_routines):
             found = [s for s in symbols if s.name == name or s.name.startswith(name + '.')]
             if not found:
                 require(name in INTERNAL, "missing routine: " + name)

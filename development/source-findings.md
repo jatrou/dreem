@@ -91,7 +91,10 @@ an exploratory probe. These findings do not establish all clock behavior.
 The [bus-frequency reconstruction](busfreq-findings.md) now implements these
 counter rules, suppressed automatic lowering, and the distinct Femto high-rate
 clock sequence. It builds into the research kernel and is compared against
-the saved ARM routines. DDR-transition internals and device qualification remain.
+the saved ARM routines. It also supplies the original DDR character-device
+interface. A separate exact relocation check matches the complete DDR3 assembly
+routine to public NXP source; DDR settings, wrapper behavior, and device
+qualification remain unverified. See the linked findings for those boundaries.
 
 ## EEG device interface
 

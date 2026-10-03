@@ -215,7 +215,8 @@ DMA fault requires reboot, not repeated trigger writes.
 No hot-unbind/unload lifecycle is supported. These limitations prevent using
 this build as an everyday headset kernel. An optional
 [bus-frequency overlay](busfreq-findings.md) reconstructs the Femto clock policy
-and its high-rate sequence. DDR internals, audio, and other board behavior still
-need reconstruction or qualification.
+and its high-rate sequence, including the recorder's DDR control interface.
+The DDR3 transition assembly matches public NXP source; its settings and wrapper,
+audio, and other board behavior still need reconstruction or qualification.
 Device-side qualification still needs verified recovery, hardware identity,
 recording fidelity, latency, power measurements, and restoration proof.

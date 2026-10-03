@@ -80,3 +80,5 @@ static void dreem_exit_lpm_imx6_up(void)
 	if (audio_bus_freq_mode)
 		clk_disable_unprepare(pll2_400_clk);
 }
+
+#include "ddr_linux.inc"
