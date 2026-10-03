@@ -170,6 +170,18 @@ static int power_off_error(const struct ads_transport *t, int result)
     return result;
 }
 
+int ads129x_sdma_test_signal(const struct ads_transport *t)
+{
+    static const uint8_t registers[] = {2, 5, 6, 7, 8};
+    uint32_t ignored;
+    if (!valid_transport(t))
+        return -22;
+    for (unsigned i = 0; i < sizeof(registers); ++i)
+        if (register_access(t, 0x40 | registers[i], 0x15, &ignored))
+            return power_off_error(t, -110);
+    return 0;
+}
+
 int ads129x_sdma_start(const struct ads_transport *t, struct ads_sdma_state *state)
 {
     if (!valid_transport(t) || !state || !state->ring)

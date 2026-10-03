@@ -47,6 +47,12 @@ int ads129x_sdma_start(const struct ads_transport *transport,
 int ads129x_sdma_stop(const struct ads_transport *transport);
 int ads129x_sdma_release(const struct ads_transport *transport);
 
+/* Enable the stock ioctl-5 internal test signal on the four acquired channels.
+ * Caller must have initialized the ADC and stopped acquisition; SPI must be in
+ * command mode. Does not start acquisition. Close/reinitialize restores normal
+ * inputs. Returns 0, -110 with power-off cleanup, or -22 for invalid transport. */
+int ads129x_sdma_test_signal(const struct ads_transport *transport);
+
 /* Consume one notification and one frame from the configured ring. QUEUE_WAIT
  * receives a=b=0 and returns zero after acquiring a notification, nonzero on
  * interruption (up to five attempts). Its blocking/timeout policy belongs to

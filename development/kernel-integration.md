@@ -47,8 +47,11 @@ device must be quiescent and unbound before another driver can bind it.
   portable component. MMIO uses `readl`/`writel`; a DMA write barrier precedes
   request enable, and a DMA read barrier follows notification acquisition.
 - Recorder ioctls `0`, `1`, and `4` implement stop, start, and error-count copy.
-  Unknown commands return `-ENOTTY`. The archived test-signal ioctl `5` is
-  **not implemented in this adapter yet**.
+  Test-signal ioctl `5` selects the ADC's internal waveform on channels 1–4,
+  ignoring its argument as the stock implementation does. It requires stopped
+  acquisition; a running instance returns `-EBUSY` before any hardware writes.
+  It does not start acquisition. Close/reopen resets the ADC and restores the
+  normal input registers. Unknown commands return `-ENOTTY`.
 - Reads require at least 16 bytes and return exactly one record. A failed or
   partial `copy_to_user` returns `-EFAULT` while retaining the frame for retry.
   Padding is initialized by the reconstructed reader.
@@ -100,7 +103,7 @@ disabled. The older GCC 7.3 does not support the newer host verifier's
 structure offsets; generated modules may contain local build paths.
 
 The recorded build's module SHA-256 is
-`55081903e4be87716248988d4199ff7c64766a919dcd25f5975373b51c824bff`.
+`2e59da5cd6e1611fcf8fd2a9360fbc6ce34724645c3e753843d0da8df700fdae`.
 This is an evidence identifier, not a reproducible-build claim: path and build
 metadata can change it. Each run writes `module-report.json` with source,
 configuration, artifact hashes, checked declarations, and import results.
@@ -109,12 +112,12 @@ configuration, artifact hashes, checked declarations, and import results.
 
 The emulator loads only the generated ARM ELF into synthetic memory, applies
 its relocations, reads member offsets from DWARF, and stubs selected Linux
-calls. The module is not inserted into the host kernel. Forty-eight cases pass:
+calls. The module is not inserted into the host kernel. Sixty-four cases pass:
 short outputs, payload/padding, a partial-copy retry, empty nonblocking and
 blocking queues, detached/cancelled reads, cancellation or a signal during a
 wait, interrupted mutex acquisition, counter copies and copy failure, unknown
 ioctl, duplicate start, stop/restart, and stalled-stop cleanup, plus the
-lifecycle cases below.
+lifecycle and test-signal cases below.
 
 The added cases execute the compiled probe, open, close, remove, and suspend
 functions. Kernel allocation, GPIO ownership, MMIO mapping, device registration,
@@ -126,6 +129,12 @@ refusal while open, exclusive open, removal with an outstanding descriptor,
 deferred cleanup at final close, and close/suspend/reopen with working or stalled
 SPI. Reference counts and resource ownership must balance; shutdown must disable
 DMA requests and drive the modeled power/CS pins to their inactive states.
+
+Test-signal checks cover five rejection paths, an enable/start/close/reopen
+sequence that restores normal input registers, and timeouts at each of its ten
+SPI transactions. A failed setup powers off and rejects further control until
+reinitialization. Independent comparisons of the portable implementation with
+the original ARM ioctl are documented in [ADC findings](adc-findings.md).
 
 These are sequential fault-injection tests of actual ARM instructions with
 synthetic kernel services. The PM model checks the target device, call flags,
@@ -139,8 +148,8 @@ DMA concurrency, and device safety remain unproven. Required remaining work:
    confirm the actual kernel, hardware revision, active provider, and owners.
 3. Compare recording bytes, dropped frames, latency, CPU, and memory during a
    reversible on-device trial; prove restoration of the original driver.
-4. Validate suspend/resume and power behavior, and implement/test any further
-   required ioctl behavior.
+4. Validate suspend/resume, power behavior, and the physical test waveform;
+   establish any additional ioctl behavior required by the native recorder.
 5. Reconstruct the provider's channel/script loading and interrupt handling
    for a fully source-built acquisition stack. The public NXP kernel remains
    incomplete for the board even after this ADC component.

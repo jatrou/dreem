@@ -268,7 +268,7 @@ static long adc_ioctl(struct file *file, unsigned int command, unsigned long arg
 {
 	struct dreem_adc *adc = file->private_data;
 	int ret;
-	if (command != 0 && command != 1 && command != 4)
+	if (command != 0 && command != 1 && command != 4 && command != 5)
 		return -ENOTTY;
 	if (command == 0)
 		atomic_set(&adc->cancelled, 1);
@@ -284,7 +284,7 @@ static long adc_ioctl(struct file *file, unsigned int command, unsigned long arg
 		ret = -EIO;
 		goto out;
 	}
-	if (command == 1 && adc->running) {
+	if ((command == 1 || command == 5) && adc->running) {
 		ret = -EBUSY;
 		goto out;
 	}
@@ -307,6 +307,10 @@ static long adc_ioctl(struct file *file, unsigned int command, unsigned long arg
 			adc->running = true;
 			atomic_set(&adc->cancelled, 0);
 		}
+		break;
+	case 5:
+		ret = ads129x_sdma_test_signal(&adc->transport);
+		adc->pending = false;
 		break;
 	default:
 		ret = copy_to_user((void __user *)argument, &adc->state.errors,

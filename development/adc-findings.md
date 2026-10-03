@@ -2,8 +2,9 @@
 
 Verified offline on October 2, 2026 against the stock kernel identified in
 [source findings](source-findings.md). This reconstructs the initialization
-used by the SDMA acquisition path, its start/stop/release sequences, and its
-ring-to-record conversion. It is not a complete Linux acquisition driver.
+used by the SDMA acquisition path, its start/stop/release sequences, internal
+test-signal setup, and ring-to-record conversion. It is not a complete Linux
+acquisition driver.
 
 ## Source and transport boundary
 
@@ -203,3 +204,45 @@ Linux adapter implements caller-length checks, copy retries, exclusive access,
 DMA ordering, and bounded waits. Its verification scope and remaining gates
 are recorded in the integration document. Concurrent DMA writes and physical
 acquisition fidelity remain unverified.
+
+## Internal test waveform
+
+The SDMA ioctl at `0x8041daa0`, command `5`, writes `0x15` to registers
+`0x02`, `0x05`, `0x06`, `0x07`, and `0x08`, in that order. Each write is preceded
+by SDATAC (`0x11`). The ioctl ignores its argument. It does not reset the ring
+or start acquisition, and the original function has no guard against being
+called while acquisition is active.
+
+`ads129x_sdma_test_signal` reconstructs this register sequence. The Linux
+adapter requires initialized, stopped acquisition and refuses an active stream
+with `-EBUSY` before touching hardware. It retains the stock command number
+and ignored argument. Starting afterward uses the normal acquisition path.
+Close/reopen performs the initialization reset and restores `CONFIG2=0xc0` and
+`CH1SET`–`CH4SET=0x10`; no separate disable command is invented.
+
+[TI's ADS129x datasheet](https://www.ti.com/lit/gpn/ADS1296), sections 9.3.1.3.2,
+9.6.1.3, and 9.6.1.6, identifies the selected input as the internal test signal
+with gain 1, the larger test amplitude, and frequency `fCLK / 2^20`. At the
+nominal 2.048-MHz clock that is 1.953125 Hz. Actual clock, waveform, amplitude,
+and calibration on the headset remain unmeasured. The test source bypasses the
+electrode inputs, so it cannot prove electrode contact or the entire external
+analog path. Stock normal-mode `CONFIG2=0xc0` also sets bits the datasheet marks
+reserved/write-zero; it is preserved as observed, pending device identification
+and register readback rather than silently corrected from a family datasheet.
+
+Run the independent comparison without opening a device:
+
+```sh
+/private/work/venv/bin/python development/verify_adc_test_signal.py \
+  /private/work/inspection/kernel.elf
+```
+
+Native C and Cortex-A7 C match all ordered MMIO/GPIO/delay events in three
+stock-ARM comparisons, with zero, one, and three delayed status reads per
+transaction. The traces contain 90, 100, and 120 events. Combined trace SHA-256:
+`95629106dfd3b8580f64dc5c11ea4307e3b3f1e311f21be7f30541428c8f2b79`.
+All ten command/register transactions are separately made unresponsive. The
+stock routine exceeds the emulator instruction bound; both reconstruction
+targets return `-110`, disable DMA requests, power off, and deselect. Null and
+empty transports are also rejected. These checks do not model ADC analog
+behavior or establish a physical test waveform.

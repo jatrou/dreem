@@ -26,6 +26,7 @@ from unicorn.arm_const import (UC_CPU_ARM_CORTEX_A7, UC_ARM_REG_R0, UC_ARM_REG_R
 from verify_adc_init import READ, WRITE, GPIO_OUTPUT, GPIO_SET, SLEEP_MS, SLEEP_US, SPI, CLOCK, EVENT
 from verify_adc_control import AcquisitionTransport, QUEUE_TRYLOCK
 from verify_adc_read import fixtures, ORDER
+from verify_adc_test_signal import TestSignalTransport
 
 ADC, FILE, RING, USER = 0x30000000, 0x30001000, 0x30005000, 0x30008004
 SPI_DEVICE, SPI_MASTER, PARENT, NODE = (ADC + n for n in (0x3000, 0x4000, 0x6000, 0x7000))
@@ -555,6 +556,77 @@ def verify_lifecycle(module):
     return results
 
 
+def verify_test_signal(module):
+    results = []
+    for condition, expected in (("running", -16), ("detached", -19), ("uninitialized", -5),
+                                ("interrupted mutex", -512), ("SPI lock", -16)):
+        machine = Machine(module)
+        if condition != "running":
+            machine.field("dreem_adc", ADC, "running", 0, width=1)
+        if condition == "detached":
+            machine.field("dreem_adc", ADC, "detached", 1)
+        elif condition == "uninitialized":
+            machine.field("dreem_adc", ADC, "initialized", 0, width=1)
+        elif condition == "interrupted mutex":
+            machine.lock_failure = True
+        elif condition == "SPI lock":
+            machine.failure = "spi_bus_lock"
+        require(machine.call("adc_ioctl", FILE, 5, 0) == expected, "test-signal gate failed")
+        require(not machine.model.trace, "rejected test-signal setup touched hardware")
+        results.append("test-signal gate: " + condition)
+
+    machine = Machine(module)
+    machine.prepare_probe()
+    require(machine.call("adc_probe", SPI_DEVICE) == 0 and machine.open() == 0,
+            "test-signal lifecycle setup failed")
+    start = len(machine.model.trace)
+    require(machine.call("adc_ioctl", FILE, 5, 0xFFFFFFFF) == 0, "idle test-signal ioctl failed")
+    trace = machine.model.trace[start:]
+    tx = [b for op, a, b, _ in trace if op == WRITE and a == SPI + 4]
+    expected_tx = [byte for register in (2, 5, 6, 7, 8)
+                   for byte in (0x11, 0x40 | register, 0, 0x15)]
+    require(tx == expected_tx and machine.field("dreem_adc", ADC, "running", width=1) == 0,
+            "test-signal setup wrote wrong registers or started acquisition")
+    require("__copy_to_user" not in machine.calls, "test-signal ioctl interpreted its ignored argument")
+    require(machine.call("adc_ioctl", FILE, 1, 0) == 0, "test-signal acquisition start failed")
+    require(machine.call("adc_close", 0, FILE) == 0, "test-signal close failed")
+    machine.require_power_off()
+    start = len(machine.model.trace)
+    require(machine.open() == 0, "reopen after test signal failed")
+    transactions, current = [], []
+    for op, a, b, _ in machine.model.trace[start:]:
+        if op == GPIO_SET and a == 90:
+            if b == 0:
+                current = []
+            elif current:
+                transactions.append(current)
+        elif op == WRITE and a == SPI + 4:
+            current.append(b)
+    require([0x06] in transactions and [0x42, 0, 0xC0] in transactions and
+            all([0x40 | register, 0, 0x10] in transactions for register in (5, 6, 7, 8)),
+            "reopen did not reset the ADC and restore normal input selection")
+    require(machine.call("adc_close", 0, FILE) == 0 and machine.call("adc_remove", SPI_DEVICE) == 0,
+            "test-signal lifecycle cleanup failed")
+    require(machine.resource_state() == (False, False, 0, 0, 0, 0), "test-signal sequence leaked resources")
+    results.append("test-signal enable/start/close/reopen restores normal input registers")
+
+    for transaction in range(1, 11):
+        machine = Machine(module)
+        machine.field("dreem_adc", ADC, "running", 0, width=1)
+        machine.model = TestSignalTransport(failed_transaction=transaction)
+        require(machine.call("adc_ioctl", FILE, 5, 0) == -110, "test-signal timeout not reported")
+        machine.require_power_off()
+        require(machine.field("dreem_adc", ADC, "initialized", width=1) == 0 and
+                machine.field("dreem_adc", ADC, "cancelled") == 1,
+                "failed test-signal setup remained usable")
+        length = len(machine.model.trace)
+        require(machine.call("adc_ioctl", FILE, 1, 0) == -5 and
+                machine.call("adc_ioctl", FILE, 5, 0) == -5 and len(machine.model.trace) == length,
+                "failed test-signal setup accepted further control before reinitialization")
+        results.append("test-signal timeout invalidates state: transaction " + str(transaction))
+    return results
+
+
 def verify(path):
     module = Module(path)
     results = []
@@ -628,6 +700,7 @@ def verify(path):
             "stalled stop did not shut down")
     results.append("stalled stop shuts down and invalidates initialization")
     results.extend(verify_lifecycle(module))
+    results.extend(verify_test_signal(module))
     return {"module_sha256": hashlib.sha256(module.binary).hexdigest(),
             "passed_cases": len(results), "cases": results,
             "runtime_qualified": False,
