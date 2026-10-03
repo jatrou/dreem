@@ -87,6 +87,12 @@ combinations and transfer failures. Original ARM replay independently verifies
 the recorder's startup sequence and reproduces six false-success paths.
 Exclusive owner integration and physical sensor qualification remain open.
 
+The [independent motion capture program](motion-capture.md) now connects that
+lifecycle to configurable acquisition, private JSON output and host read-time
+bounds. It builds for host and static ARM and handles interruption and cleanup
+failures. It requires an inherited descriptor and ownership established by its
+parent; it does not take a sensor away from the vendor manager.
+
 The [sensor ownership investigation](sensor-ownership.md) now verifies why
 recording idle is insufficient for that integration: normal record stop attempts
 background optical restart, and failed joins can discard retirement bookkeeping.

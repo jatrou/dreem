@@ -64,6 +64,15 @@ verification code. They contain no extracted vendor instructions, private
 recordings or decompiler output. See [motion lifecycle](development/motion-lifecycle.md)
 for upstream attribution, original-code comparisons and verification limits.
 
+`development/motion_capture.c`, `development/build_motion_capture.sh`,
+`tests/motion_capture_harness.c` and `tests/test_motion_capture.py` are independent
+Apache-2.0 code. The capture program links the above BSD-3-Clause ST driver and
+the toolchain runtime libraries. Generated executables remain private build
+outputs; public binary distribution requires compliance with the linked
+libraries' applicable terms, separately from the project source license.
+No vendor instructions, decompiler output or private recordings are included.
+See [motion capture](development/motion-capture.md) for the integration contract.
+
 ## Recording-event reconstruction
 
 `development/algo_events.c`, `development/algo_events.h`,

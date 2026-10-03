@@ -6,6 +6,10 @@ configuration readback, fresh-sample checks and verified power-down. This is
 editable acquisition source for an exclusively owned sensor, not a deployed
 replacement for Dreem's motion manager.
 
+The [motion capture program](motion-capture.md) now provides a compiled host/ARM
+caller with explicit profiles, host read-time bounds, private file output and
+shutdown handling. Its parent must still establish and retain exclusive ownership.
+
 ## Public source and original behavior
 
 The repository includes STMicroelectronics' driver and header at commit

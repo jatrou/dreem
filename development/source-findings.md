@@ -253,6 +253,12 @@ power-down. Its original-code verifier checks the startup and sample-read
 paths separately from the new implementation. It does not replace the active
 sensor manager or establish concurrent ownership.
 
+The [independent motion capture program](motion-capture.md) now uses that source
+to acquire configurable profiles into a private file with host read-time bounds
+and checked shutdown. Connected host/ARM tests cover all 72 profile/address
+combinations and interruption, I/O and cleanup failures. It requires ownership
+from its parent; physical acquisition and vendor handoff remain unqualified.
+
 The [sensor transport and optical reconstruction](sensor-transport.md) now
 provides checked register I/O and an optical decoder matching the original ARM
 conversion. Executing the original bus helpers reproduces an error-cancellation
