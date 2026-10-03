@@ -24,14 +24,16 @@ control/routing tables, and registration data in the saved kernel. The compariso
 covers 16,796 bytes and validates 115 referenced strings. The separate board
 driver now also matches all 17 functions and tables (5,644 bytes). Its jack
 verifier reproduces 79 cases, including startup/removal defects that a deployable
-replacement must fix. Both remain isolated references; integration and physical
-tests are unfinished. See the same audio findings for scope and reproduction.
+replacement must fix. Those matching references remain isolated. A separate
+[research board implementation](audio-lifetime.md) now integrates repaired
+startup, jack publication, stale-handle rejection and cleanup into the kernel,
+with 50 compiled ARM scenarios. Codec integration and physical tests remain.
 
 The research kernel also builds a [checked hardware identity API](hardware-identity.md)
-for those future audio callers. Its 43 compiled ARM checks cover provider
+for the optional audio board driver. Its 43 compiled ARM checks cover provider
 lifetime, bounded shadow reads, clock/status errors and unchanged outputs on
 failure. With the option off, the OTP driver object exactly matches the NXP
-baseline. The API is not yet connected to the audio driver.
+baseline. The audio option uses it before claiming resources.
 
 An optional [Femto bus-frequency policy](busfreq-findings.md) now reconstructs
 the saved counter rules, disabled automatic lowering, and modified high-rate

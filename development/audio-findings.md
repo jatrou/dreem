@@ -178,13 +178,17 @@ including tests that reproduce defects; they are not a safety qualification.
 Probe execution is intentionally bounded at the first missing audio phandle.
 The complete probe's instructions are source-matched, but successful sound-card
 initialization, later failure paths, GPIO interrupts/work and actual ALSA
-routing effects have not been emulated. Those are required for the replacement.
+routing effects are outside that source-reference verifier. The separate
+[research board verifier](audio-lifetime.md) now exercises full board probe and
+cleanup with modeled services and pending GPIO callbacks; actual ALSA internals
+and physical routing remain unverified.
 
 ## Remaining integration
 
-The two drivers are isolated reference objects. They are not integrated into
-the experimental kernel. A deployable implementation must repair publication,
-error cleanup, open-file lifetime and removal, connect the new
-[checked hardware-version API](hardware-identity.md), and qualify SAI/clock integration, power management, playback and
-recording fidelity. A fresh connection to the known headset SSH endpoint timed
-out during this work; nothing was installed or flashed.
+The matching reference objects stay isolated for comparison. A separate
+[research board implementation](audio-lifetime.md) now integrates publication,
+error cleanup, open-file lifetime and removal repairs into the experimental
+kernel, connected to the [checked hardware-version API](hardware-identity.md).
+The matched codec still needs integration. SAI/clock interaction, stream-state
+error handling, power management, playback and recording fidelity remain to be
+qualified. Nothing was installed or flashed.

@@ -55,7 +55,8 @@ checking readiness.
 and `SOC_IMX6ULL`. When enabled, the provider wrappers are active. The identity
 register is read only when an internal caller invokes the API; compiling it
 does not automatically read a headset's identity. The function is not exported
-to loadable modules. It is not yet connected to the reconstructed audio driver.
+to loadable modules. The optional [research audio board](audio-lifetime.md) now
+calls it during probe; without that option there is no automatic caller.
 
 ## Build and evidence
 
@@ -106,5 +107,6 @@ Build and verification manifests pin inputs and outputs outside the repository.
 These tests execute compiled getter/wrapper instructions with modeled clocks,
 registers, locking, and original provider callbacks. They do not execute the
 original sysfs/devres implementations, model real concurrent scheduling, or
-verify physical fuse contents. No firmware was installed or flashed. The jack
-lifetime repairs, audio integration and device-side qualification remain.
+verify physical fuse contents. No firmware was installed or flashed. Subsequent
+[audio board integration](audio-lifetime.md) supplies jack lifetime repairs;
+codec integration and device-side qualification remain.

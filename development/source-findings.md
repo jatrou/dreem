@@ -41,9 +41,11 @@ The [WM8960 codec source match](audio-findings.md) now reproduces all emitted
 codec functions, tables and initialization registration using four groups of
 edits to this baseline. The separate board driver now also has a complete
 function/table match, including its observed lifetime and cleanup defects.
-The source references are not yet a deployable audio integration.
-The research kernel now supplies a [checked identity read API](hardware-identity.md)
-for the observed OTP shadow word. Connecting the audio driver to it remains.
+The source references are not yet a deployable audio integration. A separate
+[research board implementation](audio-lifetime.md) now builds into the kernel
+with repaired jack publication and cleanup, using the
+[checked identity read API](hardware-identity.md). Codec integration and physical
+qualification remain.
 
 The root filesystem has no matching complete source package. We still lack
 the original `nano_core`, Nerves, custom board-driver source, Buildroot board

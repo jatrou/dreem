@@ -109,6 +109,13 @@ the upstream notice. `development/verify_wm8960_board_sources.py` and
 copyright 2026 Dreem research contributors. The reference preserves observed
 defects for analysis; no compiled driver or vendor decompilation is bundled.
 
+`development/apply_wm8960_overlay.py`, `development/kernel/wm8960_jack.inc`
+and `development/kernel/wm8960_lifetime.inc` use GPL-2.0-or-later. They adapt
+that public NXP board setup and the matching reference, with new publication,
+resource-ownership and teardown logic by Dreem research contributors (2026).
+`development/verify_wm8960_lifetime.py` is new GPL-2.0-only verification code.
+See [research audio integration](development/audio-lifetime.md) for its limits.
+
 ## Hardware identity access
 
 `development/apply_hardware_overlay.py` uses GPL-2.0-only and contains small

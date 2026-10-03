@@ -16,11 +16,15 @@ from elftools.elf.elffile import ELFFile
 from apply_sdma_overlay import apply
 from apply_busfreq_overlay import apply as apply_busfreq
 from apply_hardware_overlay import apply as apply_hardware
+from apply_wm8960_overlay import apply as apply_wm8960
 from build_adc_module import REVISION, RAW_HASH, SHARED, sha
 from recover_exports import recover, module_versions
 
 
-def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardware=False):
+def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardware=False,
+          wm8960=False):
+    if wm8960 and not hardware:
+        raise ValueError("WM8960 board requires --hardware-version")
     if output.exists() or output.is_symlink():
         raise ValueError("output must be a new private directory")
     source, baseline, stock, output = (p.resolve() for p in (source, baseline, stock, output))
@@ -54,6 +58,9 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
     if hardware:
         inputs += [here / "apply_hardware_overlay.py", here / "kernel/dreem_hardware.inc",
                    here / "kernel/dreem_hardware.h"]
+    if wm8960:
+        inputs += [here / "apply_wm8960_overlay.py", here / "wm8960_board_reference.py",
+                   here / "kernel/wm8960_jack.inc", here / "kernel/wm8960_lifetime.inc"]
     source_hashes = {str(p.relative_to(here)): sha(p) for p in inputs}
     output.mkdir(mode=0o700)
     tree, kernel, module = (output / name for name in ("source", "kernel", "module"))
@@ -71,9 +78,12 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
         apply_busfreq(tree)
     if hardware:
         apply_hardware(tree)
+    if wm8960:
+        apply_wm8960(tree)
     (kernel / ".config").write_text(config + "\nCONFIG_DREEM_EEG_SDMA=y\n" +
                                     ("CONFIG_DREEM_BUSFREQ=y\n" if busfreq else "") +
-                                    ("CONFIG_DREEM_HW_VERSION=y\n" if hardware else ""))
+                                    ("CONFIG_DREEM_HW_VERSION=y\n" if hardware else "") +
+                                    ("CONFIG_DREEM_WM8960=y\n" if wm8960 else ""))
     make = ["make", "-C", str(tree), "O=" + str(kernel), "ARCH=arm",
             "CROSS_COMPILE=" + compiler, "LOCALVERSION=", "HOSTCFLAGS=-O2 -fcommon",
             "KBUILD_BUILD_USER=builder", "KBUILD_BUILD_HOST=dreem-research"]
@@ -86,6 +96,8 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
             raise ValueError("research bus-frequency policy was not enabled")
         if hardware and "CONFIG_DREEM_HW_VERSION=y" not in (kernel / ".config").read_text().splitlines():
             raise ValueError("research hardware-version API was not enabled")
+        if wm8960 and "CONFIG_DREEM_WM8960=y" not in (kernel / ".config").read_text().splitlines():
+            raise ValueError("research WM8960 board was not enabled")
         print("Building integrated kernel", flush=True)
         subprocess.run(make + ["-j" + str(jobs), "vmlinux"], stdout=log, stderr=subprocess.STDOUT, check=True)
         # Kernel symbol CRCs come from this actual provider, without a dummy
@@ -116,7 +128,8 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
               "provider_object_sha256": sha(kernel / "drivers/dma/imx-sdma.o"),
               "adc_module_sha256": sha(artifact),
               "stock_shared_crcs": {n: f"{symbols[n]:08x}" for n in SHARED},
-              "adc_matched_imports": len(imports), "runtime_enabled_by_default": False,
+              "adc_matched_imports": len(imports), "runtime_enabled_by_default": bool(wm8960),
+              "sdma_runtime_enabled_by_default": False,
               "runtime_qualified": False, "installed": False,
               "source_files": source_hashes}
     if busfreq:
@@ -125,6 +138,11 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
     if hardware:
         report["hardware_version_object_sha256"] = sha(kernel / "drivers/char/fsl_otp.o")
         report["hardware_version_read_automatically"] = False
+    if wm8960:
+        report["wm8960_board_object_sha256"] = sha(kernel / "sound/soc/fsl/imx-wm8960.o")
+        report["wm8960_board_active_when_selected"] = True
+        report["wm8960_codec_integrated"] = False
+        report["hardware_version_read_automatically"] = True
     (output / "provider-build.json").write_text(json.dumps(report, indent=2) + "\n")
     return report
 
@@ -147,11 +165,13 @@ def main():
                         help="also compile the experimental, runtime-disabled Femto clock policy")
     parser.add_argument("--hardware-version", action="store_true",
                         help="also build the checked internal Femto hardware-version read API")
+    parser.add_argument("--wm8960-board", action="store_true",
+                        help="select the experimental Femto board driver; requires --hardware-version")
     args = parser.parse_args()
     os.umask(0o077)
     print(json.dumps(build(args.nxp_source, args.baseline_build, args.stock_kernel_elf,
                            args.new_output, args.compiler_prefix, args.jobs,
-                           args.busfreq_policy, args.hardware_version), indent=2))
+                           args.busfreq_policy, args.hardware_version, args.wm8960_board), indent=2))
 
 
 if __name__ == "__main__":
