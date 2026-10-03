@@ -18,6 +18,7 @@ from unicorn.arm_const import (UC_CPU_ARM_CORTEX_A7, UC_ARM_REG_R0, UC_ARM_REG_R
                                UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP,
                                UC_ARM_REG_LR, UC_ARM_REG_PC)
 from verify_adc_module import Module, signed, require
+from arm_relocations import relocate_mov
 from sdma_disassemble import decode
 from sdma_program_model import Machine as ProgramMachine
 from sdma_assemble import assemble
@@ -93,10 +94,7 @@ class Machine:
                 elif kind == 42:
                     word = (word & 0x80000000) | ((symbol + signed(word & 0x7FFFFFFF, 31) - place) & 0x7FFFFFFF)
                 elif kind in (43, 44):
-                    immediate = ((word >> 4) & 0xF000) | (word & 0xFFF)
-                    value = symbol + (immediate << 16 if kind == 44 else immediate)
-                    immediate = (value >> 16 if kind == 44 else value) & 0xFFFF
-                    word = (word & ~0xF0FFF) | ((immediate & 0xF000) << 4) | (immediate & 0xFFF)
+                    word = relocate_mov(word, symbol, kind == 44)
                 else:
                     raise ValueError("unsupported relocation " + str(kind))
                 self.put(place, word)

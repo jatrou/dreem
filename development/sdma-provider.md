@@ -196,6 +196,15 @@ retention. It checks delivered bytes, ordering, queue depth, and initialized
 padding. Peripheral wire timing, concurrent kernel scheduling, and physical
 recording quality are not established by this connected test.
 
+The ARM loaders share `arm_relocations.py` for MOVW/MOVT address relocations.
+Both use a signed 16-bit addend before selecting the appropriate address half,
+matching the pinned NXP kernel's ARM module loader. This corrects the earlier
+shift-before-add handling of MOVT. Current provider/ADC artifacts have zero MOVT
+addends, so their existing results are unchanged. Fifteen executed instruction
+pairs cover nonzero signed addends, carry/borrow, wraparound, and three target
+registers; run `python -m unittest tests.test_arm_relocations -v` in the analysis
+environment. Provider, ADC, and connected-pipeline checks are rerun after the fix.
+
 Current artifact identifiers, which include build-path/metadata effects:
 
 | Artifact | SHA-256 |
@@ -216,7 +225,8 @@ No hot-unbind/unload lifecycle is supported. These limitations prevent using
 this build as an everyday headset kernel. An optional
 [bus-frequency overlay](busfreq-findings.md) reconstructs the Femto clock policy
 and its high-rate sequence, including the recorder's DDR control interface.
-The DDR3 transition assembly matches public NXP source; its settings and wrapper,
-audio, and other board behavior still need reconstruction or qualification.
+The DDR3 transition assembly, C preparation routines, and static settings match
+public NXP source. DDR initialization hazards and hardware behavior, audio, and
+other board modifications still need repair, reconstruction, or qualification.
 Device-side qualification still needs verified recovery, hardware identity,
 recording fidelity, latency, power measurements, and restoration proof.

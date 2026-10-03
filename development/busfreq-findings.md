@@ -102,10 +102,65 @@ addresses or skip instruction/data bytes.
 The saved routine's SHA-256 is
 `4b973552634c1f150de954e89b91b7de3d14c3c28e4bfbb80bd5e635416945f1`.
 The public build's `save_ttbr1` and `restore_ttbr1` helpers also match the saved
-kernel exactly, for eight and sixteen bytes respectively. This establishes a
-concrete public source match for those routines. It does not establish the
-correctness of the surrounding initialization, DDR settings, call-site state,
-memory hardware, or LPDDR2 paths, and none of these routines was run on hardware.
+kernel exactly, for eight and sixteen bytes respectively. None of these routines
+was run on hardware.
+
+### C preparation routines and settings
+
+The same pinned NXP release also supplies the matching
+[`arch/arm/mach-imx/busfreq_ddr3.c`](https://github.com/nxp-imx/linux-imx/blob/30278abfe0977b1d2f065271ce1ea23c0e2d1b6e/arch/arm/mach-imx/busfreq_ddr3.c)
+source for the surrounding single-core DDR3 preparation routines:
+
+| Routine | Saved address | Bytes | Declared relocations |
+| --- | --- | ---: | ---: |
+| `update_ddr_freq_imx6_up` | `0x8002ae0c` | 272 | 11 |
+| `init_mmdc_ddr3_settings_imx6_up` | `0x8002afd8` | 852 | 53 |
+
+`verify_ddr_c_sources.py` relinks the actual public C object against both kernels
+and compares all **1,124 function bytes**. It resolves each local string through
+its complete MOVW/MOVT pair and validates the pointed-to contents. The sole
+content difference is the build-root prefix of the diagnostic `__FILE__` string;
+both paths end in `arch/arm/mach-imx/busfreq_ddr3.c`. Function instructions,
+including warning line numbers, still match exactly after relocation.
+
+The check also matches all **nine static settings tables, 464 bytes**, and the
+relative layout of twelve four-byte state objects. Duplicate local symbol names
+are resolved by the common layout of all objects, not by choosing the last name
+in a symbol table. Deliberately changing an instruction, branch relocation
+target, command-table value, or ordinary string makes the comparison fail.
+These are source/binary checks; they do not execute initialization or reproduce
+boot-time MMDC/IOMUX register values. Several static table values are placeholders
+that the initializer overwrites with hardware reads.
+
+For i.MX6ULL, the initializer builds twelve MMDC settings and two IOMUX settings.
+It retains fixed command values for MMDC offset `0x1c` and reads the other MMDC
+values at boot. The transition wrapper copies those settings into internal RAM,
+disables IRQs, saves TTBR1, supplies the measured MMDC delay field, invokes the
+copied assembly, restores TTBR1, records the rate, and enables IRQs. This identifies
+the public implementation; it does not validate its hardware prerequisites.
+
+### Inherited initialization hazards
+
+Static inspection of the matched C and ARM instructions exposes failure paths
+that remain unfixed in the research build:
+
+- Failed MMDC/IOMUX mappings only warn and execution continues. The 96-byte
+  settings allocation is unchecked before copying into it. Device-tree node
+  references, mappings, and allocations do not have a complete failure unwind.
+- Code is copied and global pointers are assigned before the internal-RAM
+  capacity check. Its error return is positive `EINVAL`, rather than `-EINVAL`.
+- The capacity expression counts **1,916 bytes** for the matched i.MX6ULL code
+  and table sizes. However, `iram_iomux_settings` points to eight-byte array
+  elements, and the DDR pointer expression scales an already byte-scaled offset
+  again. The compiled initializer uses `iomux_settings_size << 6` plus 64,
+  placing the DDR table at offset **1,980**, not 1,812. The wrapper's header and
+  twelve rows extend the occupied range to **2,084 bytes**. Therefore the current
+  check can accept an undersized reservation. This arithmetic finding does not
+  establish that the actual headset's reservation is undersized or corrupted.
+
+The source match narrows reconstruction work, but failure handling, reservation
+size/alignment, physical DDR state and timing, call-site locking, and LPDDR paths
+still need qualification before this kernel can be used on a headset.
 
 ## Build and activation boundaries
 
@@ -134,6 +189,11 @@ the optional `--busfreq-policy` flag:
   /private/work/inspection/kernel.elf \
   /private/work/femto-clock-build/kernel/vmlinux \
   /private/work/femto-clock-build/kernel/arch/arm/mach-imx/ddr3_freq_imx6sx.o
+
+/private/work/venv/bin/python development/verify_ddr_c_sources.py \
+  /private/work/inspection/kernel.elf \
+  /private/work/femto-clock-build/kernel/vmlinux \
+  /private/work/femto-clock-build/kernel/arch/arm/mach-imx/busfreq_ddr3.o
 ```
 
 The option adds `CONFIG_DREEM_BUSFREQ=y`, but **runtime activation is still off
@@ -175,8 +235,9 @@ records source/configuration and kernel, bus-frequency object, provider, and
 ADC hashes; the verification reports identify their actual binary inputs.
 
 The clock/DDR service bodies and CPU-rate restoration are modeled boundaries
-in the execution verifiers; the separate DDR3 source comparison proves binary
-identity after relocation. Physical clock timing, DDR settings and wrapper
-behavior, voltage changes, real scheduling, and suspend/resume remain unverified.
+in the execution verifiers; the separate DDR3 assembly/C comparisons establish
+the source matches described above. Physical clock timing, boot-time DDR values,
+initializer failure handling, execution of the wrapper on hardware, voltage
+changes, real scheduling, and suspend/resume remain unverified.
 Actual devtmpfs/syscall behavior, other board changes, and headset recovery/runtime
 proof also remain unfinished. This does not complete the board kernel.

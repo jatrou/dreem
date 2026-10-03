@@ -26,7 +26,9 @@ the unmodified NXP kernel. Runtime activation remains off by default.
 It now includes the recorder's `/dev/dreem_ddr` control interface, with 47
 compiled checks for command behavior and registration cleanup. The 1,764-byte
 DDR3 transition routine matches public NXP assembly exactly after applying its
-one declared relocation; the surrounding DDR settings still need verification.
+one declared relocation. The two surrounding C routines and nine static settings
+tables also match. Their inherited initializer hazards and hardware prerequisites
+remain unresolved; source matching does not establish runtime safety.
 
 The EEG DMA program can now be recovered into assembly that reassembles
 exactly, and an independent raw-sample decoder matches the recorder's ARM

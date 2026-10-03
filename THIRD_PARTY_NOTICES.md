@@ -78,7 +78,9 @@ notice. `development/kernel/busfreq_dreem.inc` uses GPL-2.0-only; its clock
 operations adapt that public driver's helpers, with independently reconstructed
 Femto policy. `development/kernel/ddr_linux.inc` is independently reconstructed
 GPL-2.0-only interface code. `development/verify_busfreq.py`,
-`development/verify_ddr_control.py`, and `development/verify_ddr_sources.py`
+`development/verify_ddr_control.py`, `development/verify_ddr_sources.py`,
+`development/verify_ddr_c_sources.py`, `development/arm_relocations.py`,
+and `tests/test_arm_relocations.py`
 are new GPL-2.0-only verification code, copyright 2026 Dreem research
 contributors. Private stock decompilations and vendor binaries are not included.
 

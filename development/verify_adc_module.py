@@ -27,6 +27,7 @@ from verify_adc_init import READ, WRITE, GPIO_OUTPUT, GPIO_SET, SLEEP_MS, SLEEP_
 from verify_adc_control import AcquisitionTransport, QUEUE_TRYLOCK
 from verify_adc_read import fixtures, ORDER
 from verify_adc_test_signal import TestSignalTransport
+from arm_relocations import relocate_mov
 
 ADC, FILE, RING, USER = 0x30000000, 0x30001000, 0x30005000, 0x30008004
 SPI_DEVICE, SPI_MASTER, PARENT, NODE = (ADC + n for n in (0x3000, 0x4000, 0x6000, 0x7000))
@@ -149,10 +150,7 @@ class Machine:
                 elif kind == 42:  # R_ARM_PREL31
                     word = (word & 0x80000000) | ((symbol + signed(word & 0x7FFFFFFF, 31) - place) & 0x7FFFFFFF)
                 elif kind in (43, 44):  # R_ARM_MOVW_ABS_NC, R_ARM_MOVT_ABS
-                    immediate = ((word >> 4) & 0xF000) | (word & 0xFFF)
-                    value = symbol + (immediate << 16 if kind == 44 else immediate)
-                    immediate = (value >> 16 if kind == 44 else value) & 0xFFFF
-                    word = (word & ~0xF0FFF) | ((immediate & 0xF000) << 4) | (immediate & 0xFFF)
+                    word = relocate_mov(word, symbol, kind == 44)
                 else:
                     raise ValueError(f"unsupported ARM relocation {kind}")
                 self.put(place, word)
