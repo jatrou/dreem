@@ -2,6 +2,16 @@
 
 The root Apache-2.0 license and the CC BY 4.0 photograph license apply only to material identified in [`NOTICE`](NOTICE). The following files retain separate provenance and are not relicensed by this project.
 
+## Existing file streamer repair
+
+`development/repair_streamer_poll.py`, `tests/streamer_poll_harness.c` and
+`tests/test_streamer_poll.py` are project-authored Apache-2.0 repair and
+verification code for a privately supplied project streamer. The original
+desktop source and generated complete source/binaries are not included in
+this branch by that tooling. See [streamer polling](development/streamer-polling.md)
+for provenance, test scope and deployment limits. Static executable distribution
+also requires compliance with the linked toolchain runtime libraries' terms.
+
 ## U-Boot-derived recovery files
 
 The following files were produced from or configured for [U-Boot](https://source.denx.de/u-boot/u-boot), which identifies its primary license as GPL-2.0-or-later:

@@ -183,6 +183,12 @@ recovery phone connected. Existing operational records describe working root
 access and a previously tested ARM streamer; this change does not repeat that
 on-device proof.
 
+A [review of the existing file streamer](streamer-polling.md) now reproduces and
+repairs idle TCP busy polling. The checked private-source build preserves its
+receiver protocol and passes growing-file, reconnection and backpressure checks
+on host and ARM emulation. Native deployment and resource/fidelity validation
+remain unfinished; the installed receiver is still disabled.
+
 ## Build an independent feature
 
 `eeg_quality.c` reads native four-channel EEG files and emits one JSON record
