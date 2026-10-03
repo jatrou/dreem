@@ -18,6 +18,12 @@ and our independent tools provide a way to add programs without replacing it.
 See [source and hardware findings](source-findings.md) for the evidence and
 remaining gaps.
 
+The [WM8960 audio codec](audio-findings.md) now has a source-match recipe:
+four groups of changes to public NXP source reproduce all 21 emitted functions,
+control/routing tables, and registration data in the saved kernel. The comparison
+covers 16,796 bytes and validates 115 referenced strings. This is an isolated
+reference object; the separate audio board driver and physical tests remain.
+
 An optional [Femto bus-frequency policy](busfreq-findings.md) now reconstructs
 the saved counter rules, disabled automatic lowering, and modified high-rate
 clock sequence. It builds into the kernel and passes 617 modeled checks,

@@ -37,6 +37,10 @@ frequency/audio behavior. The exact Buildroot commit suffix did not resolve in
 the public Buildroot repository; search results alone cannot establish that a
 private fork is lost or publicly available.
 
+The [WM8960 codec source match](audio-findings.md) now reproduces all emitted
+codec functions, tables and initialization registration using four groups of
+edits to this baseline. The separate audio board driver remains incomplete.
+
 The root filesystem has no matching complete source package. We still lack
 the original `nano_core`, Nerves, custom board-driver source, Buildroot board
 configuration, and any separately flashed controller source. Decompiled C is

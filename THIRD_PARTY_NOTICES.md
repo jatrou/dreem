@@ -90,6 +90,16 @@ NXP DDR preparation and probe operations, retaining attribution to Freescale
 Semiconductor (2011-2016) and NXP (2017), with new checked layout, resource
 handling and publication logic by Dreem research contributors (2026).
 
+## WM8960 codec source matching
+
+`development/build_wm8960_reference.py` uses GPL-2.0-only and contains small
+matching anchors from public `sound/soc/codecs/wm8960.c`, copyright 2007-11
+Wolfson Microelectronics. The generated private source retains its original
+notice. `development/verify_wm8960_sources.py` is new GPL-2.0-only verification
+code, copyright 2026 Dreem research contributors. The upstream checkout and
+vendor firmware are external inputs; no compiled codec or vendor decompilation
+is included. See [audio findings](development/audio-findings.md).
+
 ## Upstream source snapshots
 
 The files under `third-party/source-snapshots/` are attributed snapshots of these upstream repositories:
