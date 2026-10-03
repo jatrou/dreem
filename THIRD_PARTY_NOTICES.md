@@ -92,6 +92,13 @@ The original cleanup verifier reads its instructions only from the privately
 supplied executable. See [optical lifecycle findings](development/optical-lifecycle.md)
 for primary documentation, identity limits and verification boundaries.
 
+`development/optical_quality.c` and `tests/test_optical_quality.py` also use
+Apache-2.0. They independently implement file decoding, elementary statistics
+and synthetic checks, with no extracted vendor instructions, decompiler output
+or personal recordings. See [optical recording monitor](development/optical-quality.md)
+for the observed format and verification limits. Static runtime-library
+distribution obligations are separate, as described below.
+
 ## Feature-trial tooling
 
 `development/trial_exec.c`, `development/build_feature_trial.py`,

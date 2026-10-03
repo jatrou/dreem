@@ -157,13 +157,13 @@ class FeatureTrialBundleTests(unittest.TestCase):
         self.assertEqual(p.returncode,status,p.stderr)
         return p
 
-    def test_emulated_bundle_checks_five_cases_and_reports_resources(self):
+    def test_emulated_bundle_checks_six_cases_and_reports_resources(self):
         p=self.run_bundle(self.base,'--emulated',shutil.which('qemu-arm'))
         result=Path(next(s.removeprefix('Results: ') for s in p.stdout.splitlines() if s.startswith('Results: ')))
         report=json.loads((result/'result.json').read_text())
-        self.assertEqual(report,{'mode':'emulated','fixture_cases':5,'recorder_process_preserved':None,'native_recording_fidelity_tested':False})
+        self.assertEqual(report,{'mode':'emulated','fixture_cases':6,'recorder_process_preserved':None,'native_recording_fidelity_tested':False})
         metrics=list(result.glob('*.metrics.json'))
-        self.assertEqual(len(metrics),5)
+        self.assertEqual(len(metrics),6)
         for path in metrics:
             data=json.loads(path.read_text())
             self.assertFalse(data['timed_out'])

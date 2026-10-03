@@ -97,6 +97,12 @@ explicit reset/start, verified configuration, batch reads and checked shutdown.
 Its connected tests include startup/cleanup failures and partial-frame recovery;
 owner integration and physical qualification remain open.
 
+The [optical recording monitor](optical-quality.md) provides a separate feature
+that reads `pulse.data` without accessing the sensor. It reports red/infrared
+count variation, range anomalies and correlation with explicit unknown health
+and timing. Eight host/ARM tests, host sanitizer checks and an independent
+comparison on one private native file pass; on-device qualification remains.
+
 The [recording-event monitor](algo-findings.md) decodes `algo.data`, including
 motion/optical health and recovery markers. Its host and ARM builds match all
 28 recognized event formats in the original writer/replay reader. It preserves
@@ -189,11 +195,19 @@ rows; the source file's hash is unchanged. This proves the program's arithmetic
 and ARM execution, not its power draw or interference with a real recording.
 An on-device trial still needs recording-fidelity and resource measurements.
 
-The [feature trial](feature-trial.md) now packages all four file-analysis
+The [feature trial](feature-trial.md) now packages all five file-analysis
 programs with synthetic inputs, host reference outputs, integrity checks,
-per-command supervision and process resource reports. Its five cases pass in
+per-command supervision and process resource reports. Its six cases pass in
 ARM emulation. Native execution requires the reviewed core and a running
 recorder; that path and recording-fidelity checks remain unverified.
+
+To verify the file-analysis programs and their trial bundle together:
+
+```sh
+python3 -m unittest tests.test_eeg_quality tests.test_motion_quality \
+  tests.test_optical_quality tests.test_algo_health tests.test_session_motion \
+  tests.test_feature_trial -v
+```
 
 ## Reproduce the firmware analysis
 

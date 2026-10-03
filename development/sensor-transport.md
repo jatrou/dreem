@@ -99,6 +99,10 @@ failed acquisitions. A zero row by itself does not establish sensor failure.
 The recorded-health event is code 31; see [recording events](algo-findings.md).
 Hardware version 3 skips the optical file path in the inspected code.
 
+The independent [optical recording monitor](optical-quality.md) analyzes this
+file format without owning the sensor. It reports count variation and range
+anomalies while leaving physical timing, sensor health and continuity unverified.
+
 The original initializer at `0x902b8` writes, in order:
 
 | Register | Value |

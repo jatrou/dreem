@@ -1,6 +1,6 @@
 # ARM feature fixture trial
 
-The trial bundle runs the four independent file-analysis programs on synthetic
+The trial bundle runs the five independent file-analysis programs on synthetic
 recordings, checks their output, and measures each child process. It is a
 preparatory execution test for the headset. It does not install a service,
 change firmware, access sensor device nodes, or open personal recordings.
@@ -25,7 +25,7 @@ builds, records source/compiler/binary hashes, and rejects a source change
 during the build. `base_git_commit` identifies the starting checkout commit;
 the source hashes identify the exact inputs, including any uncommitted work.
 
-The directory and `.tar.gz` archive contain five static ARM executables, a
+The directory and `.tar.gz` archive contain six static ARM executables, a
 shell runner, synthetic fixtures, reference output, the build log, a manifest,
 and checksums. The archive has fixed timestamps and ownership and contains
 only regular files. It contains no vendor firmware or personal recording.
@@ -53,6 +53,7 @@ It neither starts nor restarts the recorder to satisfy these conditions.
 | --- | --- |
 | EEG quality | Successful analysis of 500 synthetic four-channel rows |
 | Motion quality | Successful analysis of 100 synthetic motion rows |
+| [Optical quality](optical-quality.md) | Successful analysis of 100 synthetic red/infrared rows, including zero, ceiling and out-of-range cases |
 | Recorded sensor health | Successful parsing of good, bad and unknown health changes |
 | Session motion | Successful cross-file alignment and health filtering |
 | Recovered session | Explicit rejection with status 1 because alignment is unsupported |
@@ -60,7 +61,7 @@ It neither starts nor restarts the recorder to satisfy these conditions.
 Each case has a 20-second supervision deadline. A successful case must have
 the expected exit status, no supervisor/exec error or interruption, exact
 stdout and stderr agreement with its host reference, and unchanged bundle
-checksums. An unexpected result stops the runner. Only after all five cases
+checksums. An unexpected result stops the runner. Only after all six cases
 pass does it write `result.json`. Partial results remain available for diagnosis.
 
 Each `*.metrics.json` records elapsed monotonic time, child user/system CPU
@@ -100,12 +101,15 @@ sandbox, and it does not impose a memory or storage quota.
 
 ## Verification and remaining work
 
-On October 3, 2026 (America/New_York), 11 new tests passed. They cover host
+On October 3, 2026 (America/New_York), all 42 combined feature tests passed.
+The 11 trial tests cover host
 and ARM-supervised execution, error/signal distinction, process-group timeout
 and sibling preservation, interruption/parent death, inherited `SIGCHLD`,
-exclusive reports, the complete five-case emulated run, private archive
+exclusive reports, the complete six-case emulated run, private archive
 contents, changed-input rejection and deliberately wrong expected output.
-The existing 23 EEG/motion/event/session feature tests also pass.
+The eight optical-monitor tests and the existing 23 EEG/motion/event/session
+feature tests also pass. A fresh private six-case bundle was built and its
+complete emulated run passed; source hashes identify the qualified inputs.
 
 The current access check found no reachable recovery shell, connected Android
 recovery device, or Bluetooth adapter on the Linux host. No bundle has been

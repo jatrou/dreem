@@ -14,6 +14,12 @@ ${ARM_CC:-arm-linux-gnueabihf-gcc} -std=c11 -O2 -Wall -Wextra -Werror \
     -Wl,--build-id=sha1 -o build/motion_quality.arm motion_quality.c -lm
 arm-linux-gnueabihf-readelf -h build/motion_quality.arm
 sha256sum build/motion_quality.host build/motion_quality.arm
+${HOST_CC:-cc} -std=c11 -O2 -Wall -Wextra -Werror -o build/optical_quality.host optical_quality.c -lm
+${ARM_CC:-arm-linux-gnueabihf-gcc} -std=c11 -O2 -Wall -Wextra -Werror \
+    -marm -mcpu=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -static \
+    -Wl,--build-id=sha1 -o build/optical_quality.arm optical_quality.c -lm
+arm-linux-gnueabihf-readelf -h build/optical_quality.arm
+sha256sum build/optical_quality.host build/optical_quality.arm
 ${HOST_CC:-cc} -std=c11 -O2 -Wall -Wextra -Werror \
     -o build/algo_health.host algo_health.c algo_events.c
 ${ARM_CC:-arm-linux-gnueabihf-gcc} -std=c11 -O2 -Wall -Wextra -Werror \

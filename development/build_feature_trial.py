@@ -17,13 +17,14 @@ import subprocess
 import tarfile
 
 SOURCE = Path(__file__).resolve().parent
-TOOLS = ('eeg_quality', 'motion_quality', 'algo_health', 'session_motion', 'trial_exec')
+TOOLS = ('eeg_quality', 'motion_quality', 'optical_quality', 'algo_health', 'session_motion', 'trial_exec')
 CASES = (('eeg_quality', 'eeg_quality', 'normal/eeg.data', 0),
          ('motion_quality', 'motion_quality', 'normal/accelerometer.data', 0),
+         ('optical_quality', 'optical_quality', 'normal/pulse.data', 0),
          ('algo_health', 'algo_health', 'normal/algo.data', 0),
          ('session_motion', 'session_motion', 'normal', 0),
          ('recovered_session', 'session_motion', 'recovered', 1))
-SOURCE_NAMES = ('eeg_quality.c', 'motion_quality.c', 'algo_health.c', 'algo_events.c', 'algo_events.h',
+SOURCE_NAMES = ('eeg_quality.c', 'motion_quality.c', 'optical_quality.c', 'algo_health.c', 'algo_events.c', 'algo_events.h',
                 'session_motion.c', 'trial_exec.c', 'build.sh', 'build_feature_trial.py', 'run_feature_trial.sh')
 CORE_SHA256 = 'dfc83b247b505aa08ea62060f999192112a47b606754d5f469357b7addf0295a'
 
@@ -52,6 +53,9 @@ def build(output):
     normal.mkdir(parents=True); recovered.mkdir()
     (normal/'eeg.data').write_bytes(struct.pack('<4f', 1, -2, 3, 0)*500)
     (normal/'accelerometer.data').write_bytes(struct.pack('<3f', 0, 0, 1)*50+struct.pack('<3f', 1, 0, 1)*50)
+    optical = [(100+(-1)**i*10, 200-(-1)**i*20) for i in range(50)]
+    optical += [(0, 0), (0x3ffff, 0x3ffff), (0x40000, 200)] + [(100, 200)]*47
+    (normal/'pulse.data').write_bytes(b''.join(struct.pack('<II', *row) for row in optical))
     (normal/'algo.data').write_bytes(b''.join(event(*e) for e in
         ((0, 16, 1000), (0, 31, 1), (0, 30, 1), (125, 30, 0), (250, 30, 1), (375, 30, 7), (500, 17, 1002))))
     header = bytearray(142)

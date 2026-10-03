@@ -2,7 +2,8 @@
 
 > **Feature-development work, October 3, 2026:** the [development toolkit](development/README.md)
 > provides reproducible firmware/source analysis and tested independent ARM
-> EEG, [motion](development/motion-findings.md), and
+> EEG, [motion](development/motion-findings.md),
+> [optical](development/optical-quality.md), and
 > [sensor-health monitors](development/algo-findings.md), including
 > [health-aware session summaries](development/session-motion.md).
 > A [synthetic ARM trial bundle](development/feature-trial.md) prepares these

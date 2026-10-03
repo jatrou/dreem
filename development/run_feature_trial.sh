@@ -68,6 +68,7 @@ run_case() {
 
 run_case eeg_quality eeg_quality fixtures/normal/eeg.data 0
 run_case motion_quality motion_quality fixtures/normal/accelerometer.data 0
+run_case optical_quality optical_quality fixtures/normal/pulse.data 0
 run_case algo_health algo_health fixtures/normal/algo.data 0
 run_case session_motion session_motion fixtures/normal 0
 run_case recovered_session session_motion fixtures/recovered 1
@@ -79,6 +80,6 @@ if [ "$mode" = native ]; then
     }
     preserved=true
 fi
-printf '{"mode":"%s","fixture_cases":5,"recorder_process_preserved":%s,"native_recording_fidelity_tested":false}\n' \
+printf '{"mode":"%s","fixture_cases":6,"recorder_process_preserved":%s,"native_recording_fidelity_tested":false}\n' \
     "$mode" "$preserved" > "$results/result.json"
-echo 'All five fixture cases and input-integrity checks passed.'
+echo 'All six fixture cases and input-integrity checks passed.'
