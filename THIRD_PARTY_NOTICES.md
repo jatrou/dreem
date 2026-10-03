@@ -109,6 +109,16 @@ the upstream notice. `development/verify_wm8960_board_sources.py` and
 copyright 2026 Dreem research contributors. The reference preserves observed
 defects for analysis; no compiled driver or vendor decompilation is bundled.
 
+## Hardware identity access
+
+`development/apply_hardware_overlay.py` uses GPL-2.0-only and contains small
+matching anchors from NXP `drivers/char/fsl_otp.c`, copyright 2010-2016
+Freescale Semiconductor. The generated private source retains its notice.
+`development/kernel/dreem_hardware.h`, `development/kernel/dreem_hardware.inc`,
+and `development/verify_hardware_version.py` are new GPL-2.0-only source and
+verification code, copyright 2026 Dreem research contributors. No original
+vendor getter source, firmware binary, or physical OTP values are included.
+
 ## Upstream source snapshots
 
 The files under `third-party/source-snapshots/` are attributed snapshots of these upstream repositories:

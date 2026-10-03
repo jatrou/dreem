@@ -27,6 +27,12 @@ verifier reproduces 79 cases, including startup/removal defects that a deployabl
 replacement must fix. Both remain isolated references; integration and physical
 tests are unfinished. See the same audio findings for scope and reproduction.
 
+The research kernel also builds a [checked hardware identity API](hardware-identity.md)
+for those future audio callers. Its 43 compiled ARM checks cover provider
+lifetime, bounded shadow reads, clock/status errors and unchanged outputs on
+failure. With the option off, the OTP driver object exactly matches the NXP
+baseline. The API is not yet connected to the audio driver.
+
 An optional [Femto bus-frequency policy](busfreq-findings.md) now reconstructs
 the saved counter rules, disabled automatic lowering, and modified high-rate
 clock sequence. It builds into the kernel and passes 617 modeled checks,

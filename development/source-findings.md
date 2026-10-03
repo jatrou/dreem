@@ -42,6 +42,8 @@ codec functions, tables and initialization registration using four groups of
 edits to this baseline. The separate board driver now also has a complete
 function/table match, including its observed lifetime and cleanup defects.
 The source references are not yet a deployable audio integration.
+The research kernel now supplies a [checked identity read API](hardware-identity.md)
+for the observed OTP shadow word. Connecting the audio driver to it remains.
 
 The root filesystem has no matching complete source package. We still lack
 the original `nano_core`, Nerves, custom board-driver source, Buildroot board

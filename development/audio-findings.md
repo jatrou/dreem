@@ -184,7 +184,7 @@ routing effects have not been emulated. Those are required for the replacement.
 
 The two drivers are isolated reference objects. They are not integrated into
 the experimental kernel. A deployable implementation must repair publication,
-error cleanup, open-file lifetime and removal, supply checked hardware-version
-handling, and qualify SAI/clock integration, power management, playback and
+error cleanup, open-file lifetime and removal, connect the new
+[checked hardware-version API](hardware-identity.md), and qualify SAI/clock integration, power management, playback and
 recording fidelity. A fresh connection to the known headset SSH endpoint timed
 out during this work; nothing was installed or flashed.

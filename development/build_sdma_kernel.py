@@ -15,11 +15,12 @@ import subprocess
 from elftools.elf.elffile import ELFFile
 from apply_sdma_overlay import apply
 from apply_busfreq_overlay import apply as apply_busfreq
+from apply_hardware_overlay import apply as apply_hardware
 from build_adc_module import REVISION, RAW_HASH, SHARED, sha
 from recover_exports import recover, module_versions
 
 
-def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
+def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardware=False):
     if output.exists() or output.is_symlink():
         raise ValueError("output must be a new private directory")
     source, baseline, stock, output = (p.resolve() for p in (source, baseline, stock, output))
@@ -50,6 +51,9 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
         inputs += [here / "apply_busfreq_overlay.py", here / "kernel/busfreq_dreem.inc",
                    here / "kernel/ddr_linux.inc", here / "kernel/ddr_prepare_dreem.inc",
                    here / "kernel/busfreq_probe_dreem.inc"]
+    if hardware:
+        inputs += [here / "apply_hardware_overlay.py", here / "kernel/dreem_hardware.inc",
+                   here / "kernel/dreem_hardware.h"]
     source_hashes = {str(p.relative_to(here)): sha(p) for p in inputs}
     output.mkdir(mode=0o700)
     tree, kernel, module = (output / name for name in ("source", "kernel", "module"))
@@ -65,8 +69,11 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
     apply(tree)
     if busfreq:
         apply_busfreq(tree)
+    if hardware:
+        apply_hardware(tree)
     (kernel / ".config").write_text(config + "\nCONFIG_DREEM_EEG_SDMA=y\n" +
-                                    ("CONFIG_DREEM_BUSFREQ=y\n" if busfreq else ""))
+                                    ("CONFIG_DREEM_BUSFREQ=y\n" if busfreq else "") +
+                                    ("CONFIG_DREEM_HW_VERSION=y\n" if hardware else ""))
     make = ["make", "-C", str(tree), "O=" + str(kernel), "ARCH=arm",
             "CROSS_COMPILE=" + compiler, "LOCALVERSION=", "HOSTCFLAGS=-O2 -fcommon",
             "KBUILD_BUILD_USER=builder", "KBUILD_BUILD_HOST=dreem-research"]
@@ -77,6 +84,8 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
             raise ValueError("research provider was not enabled")
         if busfreq and "CONFIG_DREEM_BUSFREQ=y" not in (kernel / ".config").read_text().splitlines():
             raise ValueError("research bus-frequency policy was not enabled")
+        if hardware and "CONFIG_DREEM_HW_VERSION=y" not in (kernel / ".config").read_text().splitlines():
+            raise ValueError("research hardware-version API was not enabled")
         print("Building integrated kernel", flush=True)
         subprocess.run(make + ["-j" + str(jobs), "vmlinux"], stdout=log, stderr=subprocess.STDOUT, check=True)
         # Kernel symbol CRCs come from this actual provider, without a dummy
@@ -113,6 +122,9 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
     if busfreq:
         report["busfreq_object_sha256"] = sha(kernel / "arch/arm/mach-imx/busfreq-imx.o")
         report["busfreq_runtime_enabled_by_default"] = False
+    if hardware:
+        report["hardware_version_object_sha256"] = sha(kernel / "drivers/char/fsl_otp.o")
+        report["hardware_version_read_automatically"] = False
     (output / "provider-build.json").write_text(json.dumps(report, indent=2) + "\n")
     return report
 
@@ -133,11 +145,13 @@ def main():
     parser.add_argument("--jobs", type=int, default=8, choices=range(1, 65))
     parser.add_argument("--busfreq-policy", action="store_true",
                         help="also compile the experimental, runtime-disabled Femto clock policy")
+    parser.add_argument("--hardware-version", action="store_true",
+                        help="also build the checked internal Femto hardware-version read API")
     args = parser.parse_args()
     os.umask(0o077)
     print(json.dumps(build(args.nxp_source, args.baseline_build, args.stock_kernel_elf,
                            args.new_output, args.compiler_prefix, args.jobs,
-                           args.busfreq_policy), indent=2))
+                           args.busfreq_policy, args.hardware_version), indent=2))
 
 
 if __name__ == "__main__":
