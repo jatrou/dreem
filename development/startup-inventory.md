@@ -152,3 +152,61 @@ owner and a tested restoration path. Native recorder, sensor and battery tests
 remain unavailable while the headset cannot be reached. No change in this
 milestone installs an overlay, edits init, remounts a filesystem or changes a
 watchdog.
+
+## Retained recovery installation and native access
+
+A further inspection on October 3, 2026 establishes an existing path for
+independent programs. The saved modified recovery archive, SHA-256
+`5c475a980ec2e17f1220dcab281501015873db49e574ca90bc9cf1a7ffcaaaa2`,
+includes `/etc/init.d/S99zz-recovery-toolkit`. That hook detaches its startup
+work and invokes `/data/recovery/current/bin/start` when the toolkit is enabled
+and its version-link checks pass. Three recorded launcher failures disable
+subsequent automatic starts. A successful launcher exit resets the failure
+counter; this is not a continuing health check of its children.
+
+The hook's SHA-256 is
+`2f8674f2060c88ffc12f212b1948a516dae43e088de60e2870606b940919e661`.
+It exactly matches the retained project-authored source. Read-only inspection
+of a fresh copy of the retained data-partition image also found
+`current -> versions/1.1.0` and `always-associated` Wi-Fi mode. Its `toolkitctl`
+and version-1.1.0 `start`, `stop`, `wifi-supervisor` and `ssh-supervisor` files
+all match the retained source: **six source matches including the boot hook**.
+The archive's recorder-start and shell-watchdog scripts remain byte-identical
+to the stock scripts reviewed above.
+
+These snapshots support a writable-storage deployment route without requiring
+another root-filesystem rebuild for an independent utility. They do not prove
+the headset's current toolkit version or qualify replacement of the vendor
+recorder. The existing launcher/stop scripts still use process-name/PID checks;
+they are not a verified ownership barrier for sensor or core replacement.
+
+The same private image supplied the saved recovery Wi-Fi profile and the
+headset's fuse-derived Wi-Fi address. Both were corroborated against historical
+controller records without publishing their values. A temporary recovery trial
+restored that profile with a one-device MAC allowlist and an isolated firewall
+zone. Six allow policies covered analysis-host recovery sessions and gateway
+DHCP/DNS; thirteen block policies covered the remaining zone directions. The
+SSID was observed up on two access points, including the previously used AP.
+
+Between **4:35 p.m. and 4:39 p.m. EDT**, the four-minute trial observed no
+successful headset association or recovery SSH banner. The saved client record's
+last-seen value did not advance. MAC-filter rejection counters did increase,
+but those counters did not identify the rejected devices. The exact headset
+address was also absent from a fresh passive Bluetooth scan, and a targeted
+Bluetooth connection returned `BleakDeviceNotFoundError`. Neither checked
+primary recovery machine had a connected recovery phone or matching recovery
+USB device. USB inventories on the other two known LAN workstations likewise
+found no matching recovery/phone vendor; the attempted ADB commands were not
+available there.
+
+The temporary SSID, network, zone and associated policies were removed. The
+eight original networks, two WLANs, six zones and 113 policy objects were
+verified against the pre-trial snapshot, including their configuration fields
+apart from traffic counters/timestamps. The fallback cleanup timer was stopped.
+No headset configuration or recording was changed. Private credentials,
+device identifiers, partition images and vendor scripts remain outside Git.
+
+This is bounded negative connectivity evidence, not proof of power state,
+location, current radio configuration or a defective headset. Native deployment
+and qualification remain blocked on a reachable device; another offline test
+cannot supply that evidence.

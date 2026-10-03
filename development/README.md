@@ -41,6 +41,10 @@ restoration. A [read-only startup inventory](startup-inventory.md) now identifie
 process and descriptor observations needed before a native handoff, including
 incomplete views and observed identity changes. Native startup ownership,
 activation, rollback and qualification remain open.
+The [retained recovery installation](startup-inventory.md#retained-recovery-installation-and-native-access)
+also supplies six exact matches to the project-authored toolkit source and a
+writable-storage boot hook. An isolated attempt to restore its saved network
+did not recover native access; all temporary network changes were removed.
 
 The [WM8960 audio codec](audio-findings.md) now has a source-match recipe:
 four groups of changes to public NXP source reproduce all 21 emitted functions,
