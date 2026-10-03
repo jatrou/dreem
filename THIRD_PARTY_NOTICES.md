@@ -63,6 +63,18 @@ load only selected code from the privately supplied executable; no original
 instructions, decompiler output or personal recordings are bundled. See
 [session motion findings](development/session-motion.md).
 
+## Feature-trial tooling
+
+`development/trial_exec.c`, `development/build_feature_trial.py`,
+`development/run_feature_trial.sh`, and `tests/test_feature_trial.py` use
+Apache-2.0. They are independent execution/packaging tools and synthetic tests;
+no vendor code, personal recordings or firmware is bundled. See
+[feature trial](development/feature-trial.md) for scope and verification.
+The private generated static executables also link toolchain runtime libraries,
+including glibc. Their licenses and any corresponding-source/relinking
+obligations must be satisfied separately before public binary distribution.
+The project's Apache license does not relicense those libraries.
+
 ## ADC driver reconstruction
 
 `development/ads129x_init.c`, `development/ads129x_init.h`,

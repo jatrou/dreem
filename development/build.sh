@@ -28,3 +28,9 @@ ${ARM_CC:-arm-linux-gnueabihf-gcc} -std=c11 -O2 -Wall -Wextra -Werror \
     -Wl,--build-id=sha1 -o build/session_motion.arm session_motion.c algo_events.c -lm
 arm-linux-gnueabihf-readelf -h build/session_motion.arm
 sha256sum build/session_motion.host build/session_motion.arm
+${HOST_CC:-cc} -std=c11 -O2 -Wall -Wextra -Werror -o build/trial_exec.host trial_exec.c
+${ARM_CC:-arm-linux-gnueabihf-gcc} -std=c11 -O2 -Wall -Wextra -Werror \
+    -marm -mcpu=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard -static \
+    -Wl,--build-id=sha1 -o build/trial_exec.arm trial_exec.c
+arm-linux-gnueabihf-readelf -h build/trial_exec.arm
+sha256sum build/trial_exec.host build/trial_exec.arm

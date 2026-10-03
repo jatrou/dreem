@@ -5,6 +5,8 @@
 > EEG, [motion](development/motion-findings.md), and
 > [sensor-health monitors](development/algo-findings.md), including
 > [health-aware session summaries](development/session-motion.md).
+> A [synthetic ARM trial bundle](development/feature-trial.md) prepares these
+> programs for device execution and resource checks; native testing remains open.
 > Kernel config and symbols are recovered; the full
 > vendor application source is still unavailable. Existing operational records
 > document later root recovery, while this branch's new tests are offline.

@@ -172,6 +172,12 @@ rows; the source file's hash is unchanged. This proves the program's arithmetic
 and ARM execution, not its power draw or interference with a real recording.
 An on-device trial still needs recording-fidelity and resource measurements.
 
+The [feature trial](feature-trial.md) now packages all four file-analysis
+programs with synthetic inputs, host reference outputs, integrity checks,
+per-command supervision and process resource reports. Its five cases pass in
+ARM emulation. Native execution requires the reviewed core and a running
+recorder; that path and recording-fidelity checks remain unverified.
+
 ## Reproduce the firmware analysis
 
 Use an already acquired stock archive. None is downloaded or distributed by
@@ -333,7 +339,7 @@ sh development/build.sh
   tests.test_firmware_development tests.test_kernel_exports \
   tests.test_compare_exports tests.test_sdma_disassemble \
   tests.test_eeg_samples tests.test_eeg_quality tests.test_motion_quality \
-  tests.test_algo_health tests.test_session_motion -v
+  tests.test_algo_health tests.test_session_motion tests.test_feature_trial -v
 ```
 
 The suite covers malformed/truncated input, archive link and duplicate rejection,
