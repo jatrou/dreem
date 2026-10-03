@@ -121,6 +121,7 @@ class ClockMachine(StreamMachine):
         self.sai_registers, self.sai_trace = {}, []
         self.hardware_registers = {}
         self.force_locked = False
+        self.sai_force_locked = self.sai_stream_locked = False
         self.io_count, self.fail_at, self.persistent = 0, fail_at, persistent
         self.field('fsl_sai', SAI, 'regmap', REGMAP)
         self.field('fsl_sai', SAI, 'slots', 2)
@@ -130,6 +131,9 @@ class ClockMachine(StreamMachine):
         self.field('regmap', CODEC_MAP, 'lock', FORCE_LOCK)
         self.field('regmap', CODEC_MAP, 'unlock', FORCE_UNLOCK)
         self.field('regmap', CODEC_MAP, 'lock_arg', CODEC_MAP)
+        self.field('regmap', REGMAP, 'lock', FORCE_LOCK)
+        self.field('regmap', REGMAP, 'unlock', FORCE_UNLOCK)
+        self.field('regmap', REGMAP, 'lock_arg', REGMAP)
 
     def call(self, name, *arguments):
         require(len(arguments) <= 8, 'too many ARM arguments')
@@ -141,8 +145,14 @@ class ClockMachine(StreamMachine):
         name = self.stub_addresses.get(address)
         a, b, c, d = [cpu.reg_read(r) for r in (UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3)]
         if name in ('force_lock', 'force_unlock'):
-            require(a == CODEC_MAP and self.force_locked == (name == 'force_unlock'), 'regmap lock order violated')
-            self.force_locked = name == 'force_lock'
+            require(a in (REGMAP, CODEC_MAP), 'unknown regmap lock')
+            field = 'sai_force_locked' if a == REGMAP else 'force_locked'
+            require(getattr(self, field) == (name == 'force_unlock'), 'regmap lock order violated')
+            setattr(self, field, name == 'force_lock')
+            result = 0
+        elif name in ('mutex_lock', 'mutex_unlock') and a == SAI + self.types.members['fsl_sai']['dreem_stream_lock']:
+            require(self.sai_stream_locked == (name == 'mutex_unlock'), 'SAI setup lock imbalance')
+            self.sai_stream_locked = name == 'mutex_lock'
             result = 0
         elif name == 'snd_pcm_hw_constraint_list' and d == self.symbols.get('dreem_wm8960_rate_constraints'):
             require(a == PCM and b == 0 and c == 11, 'wrong codec rate-constraint call')
@@ -169,12 +179,13 @@ class ClockMachine(StreamMachine):
                               'snd_soc_dai_set_tdm_slot': 'fsl_sai_set_dai_tdm_slot'}[name]
                 cpu.reg_write(UC_ARM_REG_PC, self.symbols[target])
                 return
-        elif name in ('regmap_update_bits', 'regmap_write', 'regmap_read'):
+        elif a == REGMAP and name in ('regmap_update_bits', 'regmap_write', 'regmap_read', '_regmap_read', '_regmap_write'):
             require(a == REGMAP and b < 0xe4, 'unexpected SAI register')
+            require(not name.startswith('_regmap') or self.sai_force_locked, 'SAI forced write without map lock')
             self.sai_trace.append((name, b, c, d))
             if name == 'regmap_update_bits':
                 self.sai_registers[b] = (self.sai_registers.get(b, 0) & ~c) | (d & c)
-            elif name == 'regmap_write':
+            elif name in ('regmap_write', '_regmap_write'):
                 self.sai_registers[b] = c
             else:
                 self.put(c, self.sai_registers.get(b, 0))
@@ -376,10 +387,12 @@ def verify(image, types):
     for direction in (0, 1):
         sub = SUB if direction == 0 else CAPTURE
         m = ClockMachine(image, types)
+        m.flag('fsl_sai', SAI, 'is_stream_opened', direction, 1)
         require(m.call('fsl_sai_hw_params', sub, PARAMS, CPU_DAI) == 0, 'SAI default fixture failed')
         require((m.sai_registers[(0 if direction == 0 else 0x80) + 0x14] >> 24) & 31 == 15,
                 'SAI changed slot size without explicit request')
-        require(m.call('fsl_sai_set_dai_tdm_slot', CPU_DAI, 0, 0, 2, 32) == 0 and
+        require(m.call('fsl_sai_hw_free', sub, CPU_DAI) == 0 and
+                m.call('fsl_sai_set_dai_tdm_slot', CPU_DAI, 0, 0, 2, 32) == 0 and
                 m.call('fsl_sai_hw_params', sub, PARAMS, CPU_DAI) == 0, 'SAI explicit fixture failed')
         require((m.sai_registers[(0 if direction == 0 else 0x80) + 0x14] >> 24) & 31 == 31,
                 'SAI ignored requested slot width')

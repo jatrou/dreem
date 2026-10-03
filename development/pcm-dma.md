@@ -86,13 +86,13 @@ and 648 i.MX PCM function/table bytes with the linked kernel, including checked
 relocations and strings. ROM entry addresses come from the public i.MX6UL table;
 the headset's active ROM/firmware contents are not verified by this fixture.
 
-The same kernel passes the 58 SAI lifetime, 305 clock, 50 board lifetime,
+The same kernel passes the 362 SAI parameter, 58 SAI lifetime, 305 clock, 50 board lifetime,
 43 identity, 76 connected EEG, 617 bus-frequency and 58 DDR preparation cases.
 The original codec source matcher also passes its seven negative controls after
 the shared object matcher was extended to accept objects without init/exit text.
 All 44 ADC module imports match the rebuilt kernel exports.
 
-With only the research audio option disabled, both PCM objects are byte-identical
+At the PCM milestone, with only the research audio option disabled, both PCM objects were byte-identical
 to pre-overlay controls compiled at the same source path and configuration.
 The SDMA object differs only in debug information and line records; after removing
 debug sections, the entire objects are byte-identical. The EEG option remains
@@ -102,12 +102,12 @@ The enabled object SHA-256 values are:
 
 | Object | SHA-256 |
 | --- | --- |
-| SDMA | `399d275f6196f8fe4408230d8e2ad9415d695ec09fbe7ebabf92c67bf1f2bb82` |
-| Core PCM | `2f984b2f8575a3986fcacc41be6830c6eb160fb76d6c7b46375f9c26d7ef0536` |
-| i.MX PCM | `2e3da9b4ffd70d4fd0f4d7d515d12b904ddbf81069bbaa5189ecc6a6f432967c` |
+| SDMA | `b4c1d5fc253c30b5523d19f43df06efe2a4db89bd9dd2d42606ad080bc4f158e` |
+| Core PCM | `7db34db72587729d6c069fc8aea35345f5ccbe0e591b58eeb871a0e5e2e3a99c` |
+| i.MX PCM | `3f3b329318daf824ba679ff05eebb070f42cae14ce7cd0b117d9019717c797f6` |
 
 [Board integration](audio-lifetime.md) owns the kernel hash. Private manifests
-pin all 35 build-source inputs, 11 artifacts, verifier sources and reports.
+pin all 36 build-source inputs, 11 artifacts, verifier sources and reports.
 
 ## Remaining boundaries
 
@@ -115,5 +115,6 @@ Allocation services, register access and channel-zero hardware transactions are
 modeled. Buffer allocation covers the successful IRAM path, not DMA-allocation
 fallback. The checks do not execute the ROM transfer script, submit DMA, deliver
 sample payloads, schedule completion IRQs, or qualify residue/pause behavior.
-SAI parameter/trigger errors, codec bias/power transitions, physical clocks,
+[SAI parameter errors](sai-parameters.md) now have separate checks. Trigger/IRQ
+handling, reconfiguration without an explicit free, codec bias/power transitions, physical clocks,
 analogue output and recording fidelity remain unfinished. Nothing was flashed.

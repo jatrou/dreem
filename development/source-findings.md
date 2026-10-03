@@ -49,7 +49,9 @@ repairs](audio-clocking.md) now configure the advertised rates and widths in
 connected callback tests. [SAI startup and shutdown](sai-lifetime.md) now balance
 resources after failures. [PCM cyclic preparation](pcm-dma.md) now bounds
 requests and unwinds context-load failures, retaining packed-20 support.
-Actual sample transfer, parameter/trigger errors, power management and physical
+[SAI parameter setup](sai-parameters.md) now propagates register errors and
+tracks exact clock ownership. Actual sample transfer, trigger/IRQ errors,
+reconfiguration without an explicit free, power management and physical
 qualification remain; the unchanged matched codec is retained as a reference.
 
 The root filesystem has no matching complete source package. We still lack

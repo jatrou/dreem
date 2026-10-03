@@ -57,6 +57,7 @@ static void fsl_sai_shutdown(struct snd_pcm_substream *substream,
 
 	mutex_lock(&sai->dreem_stream_lock);
 	if (sai->is_stream_opened[tx]) {
+		dreem_sai_release_params(sai, tx);
 		/* Force the write even after a failed write updated the cache. */
 		if (dreem_regmap_write_bits(sai->regmap, FSL_SAI_xCR3(tx),
 					    FSL_SAI_CR3_TRCE, 0) < 0)

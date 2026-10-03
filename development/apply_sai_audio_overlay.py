@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""Repair SAI slots and stream startup in the experimental audio profile.
+"""Repair SAI configuration and stream ownership in the research audio profile.
 
 Adapts public Freescale/NXP fsl_sai.c/h. With CONFIG_DREEM_WM8960 disabled,
 both source files preprocess to the original implementation.
@@ -38,6 +38,10 @@ def apply(source):
         if code.count(before) != 1:
             raise ValueError('unexpected SAI anchor')
         code = code.replace(before, after)
+    start = code.index('static int fsl_sai_set_dai_tdm_slot(')
+    end = code.index('static int fsl_sai_trigger(', start)
+    code = (code[:start] + '#ifdef CONFIG_DREEM_WM8960\n#include "sai_parameters.inc"\n#else\n' +
+            code[start:end] + '#endif\n\n' + code[end:])
     start = code.index('static int fsl_sai_startup(')
     end = code.index('static const struct snd_soc_dai_ops fsl_sai_pcm_dai_ops', start)
     code = (code[:start] + '#ifdef CONFIG_DREEM_WM8960\n#include "sai_lifetime.inc"\n#else\n' +
@@ -52,6 +56,8 @@ def apply(source):
     (folder / 'fsl_sai.c').write_text(code)
     (folder / 'sai_lifetime.inc').write_bytes(
         (Path(__file__).parent / 'kernel/sai_lifetime.inc').read_bytes())
+    (folder / 'sai_parameters.inc').write_bytes(
+        (Path(__file__).parent / 'kernel/sai_parameters.inc').read_bytes())
     code = (folder / 'fsl_sai.h').read_text()
     before = '\tstruct snd_dmaengine_dai_dma_data dma_params_tx;'
     if code.count(before) != 1:
@@ -60,6 +66,10 @@ def apply(source):
 #ifdef CONFIG_DREEM_WM8960
 	bool dreem_explicit_slots;
 	struct mutex dreem_stream_lock;
+	bool dreem_configured[2];
+	u32 dreem_format;
+	u32 dreem_rate[2], dreem_width[2], dreem_channels[2];
+	struct clk *dreem_owned_mclk[2];
 #endif''')
     # The header is also included by the board driver, before its own includes.
     before = 'struct fsl_sai {'

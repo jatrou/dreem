@@ -113,7 +113,7 @@ duplex isolation, sixteen independent PLL-factor checks including odd inputs,
 three rounding boundaries, five invalid PLL pairs, explicit/default SAI slots,
 five rate-constraint/registration checks and three original-driver negative controls.
 
-The verifier compares 17,340 codec bytes and 6,644 SAI bytes against their linked
+The verifier compares 17,340 codec bytes and 7,076 SAI bytes against their linked
 kernel contents with relocation/string validation. It separately verifies and
 executes the 140-byte forced-write helper. Negative controls reproduce the old
 codec's valid-PLL rejection and failed-parameter active flag, and the old SAI's
@@ -121,7 +121,7 @@ ignored explicit slot width. The matching reference codec is still compared
 against the saved firmware.
 
 The complete kernel and ADC module build, and all 44 ADC imports match the
-rebuilt kernel. The 58 PCM, 58 SAI lifetime, 50 board-lifetime, 43 identity,
+rebuilt kernel. The 362 SAI parameter, 58 PCM, 58 SAI lifetime, 50 board-lifetime, 43 identity,
 76 connected EEG, 617 bus-frequency and 58 DDR preparation checks also pass on
 this build. The earlier SAI milestone verified that, with the audio option
 disabled, board/codec/SAI objects are byte-identical to the existing NXP baseline.
@@ -131,17 +131,18 @@ NXP control compiled at the same source path; its warning strings embed
 
 The [board integration record](audio-lifetime.md) owns the kernel and board
 hashes. The enabled codec SHA-256 is
-`5ce5fc4d3d30831fa048fb97f6758ea98564194ca52b134f5cd7828d9ed0f840`;
-SAI is `11753a7c76bed9a9cb3fe1337818e542c1e45cbf328ef83b74a77c2c5275b5af`;
-regmap is `59c939288e154b6e1950367791a082514fa2960b7354217212edd69684ebb5ad`.
+`3457c013b74f6a94e34b387e65112e02920b1e8895efff69e313e4b12d163af5`;
+SAI is `f2a2ad419a09ccb0c6c420ba7d998226b58d3f6d78cd5714b165c6851c7e7d47`;
+regmap is `487edcc33487404799c8dfb646caa2445902522905be4dab3a6d2e7c89921675`.
 Private manifests pin the source inputs, artifacts and verifier dependencies.
 
 [SAI startup and shutdown](sai-lifetime.md) now have separate resource rollback
 and connected callback tests on this kernel. The [PCM cyclic-path verification](pcm-dma.md)
 corrects this record's earlier packed-20 claim: PCM requests a three-byte bus
 width, and cyclic SDMA preparation accepts it. The rejection previously cited
-belongs to a different scatter/gather path. Actual sample packing/transfer,
-ALSA negotiation/unwind internals, SAI parameter/trigger register-error handling,
+belongs to a different scatter/gather path. [SAI parameter setup](sai-parameters.md)
+now handles register errors and clock ownership. Actual sample packing/transfer,
+ALSA negotiation/unwind internals, SAI trigger/IRQ handling and reconfiguration,
 power management, concurrent scheduling, physical clock timing, analogue output
 and recording fidelity remain unqualified. These callback tests do not establish
 complete `aplay`/`arecord` support.

@@ -34,8 +34,10 @@ isolation and cached-register retries. The [SAI startup repair](sai-lifetime.md)
 adds 58 compiled checks for resource rollback, retry, duplex isolation and
 connected startup/close. [PCM cyclic preparation](pcm-dma.md) adds 58 checks
 for sample widths, descriptor bounds, context-failure cleanup and previous-driver
-controls. Actual DMA sample transfer, parameter/trigger errors, power management
-and physical audio tests remain. The [earlier stream reference](audio-streams.md)
+controls. [SAI parameter setup](sai-parameters.md) now checks register errors
+and exact master-clock ownership, with 362 compiled cases. Actual DMA sample
+transfer, trigger/IRQ handling, reconfiguration without an explicit free, power
+management and physical audio tests remain. The [earlier stream reference](audio-streams.md)
 preserves the original clock-policy limits for comparison.
 
 The research kernel also builds a [checked hardware identity API](hardware-identity.md)

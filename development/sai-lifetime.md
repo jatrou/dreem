@@ -28,6 +28,8 @@ register update also discards errors.
   members retain their offsets. The mutex is initialized during SAI probe.
 - Repeated shutdown of an unopened stream does nothing. Closing one direction
   leaves the other's ownership and clock references intact.
+- Shutdown also releases any remaining [parameter-owned MCLK reference](sai-parameters.md)
+  before releasing the bus clock and PM reference.
 
 Channel setup and cleanup use the existing internal forced-write regmap helper.
 The SAI uses a flat register cache, so an unsuccessful write can update its
@@ -63,14 +65,15 @@ opens/closes, duplex isolation, and later platform/codec/board startup failures
 followed by retry, parameter setup, free and close. Five controls reproduce the
 original NXP driver's ownership leaks and ignored PM/register errors.
 
-The verifier checks all 6,644 emitted SAI function/table/registration bytes
+The verifier checks all 7,076 emitted SAI function/table/registration bytes
 against the linked kernel, validating relocations and strings. Zero-sized BSS
 lock-class keys also receive a checked relocation base. It executes the actual
 forced-write helper with modeled cache/bus operations and separate lock checks.
 The probe check stops after observing mutex initialization, before device-tree
 and hardware setup; it does not qualify the full SAI probe.
 
-The 58 PCM, 305 clock, 50 board-lifetime, 43 identity, 76 connected EEG, 617 bus-frequency
+The 362 SAI parameter, 58 PCM, 305 clock, 50 board-lifetime, 43 identity,
+76 connected EEG, 617 bus-frequency
 and 58 DDR preparation cases also pass on the same kernel. All 44 ADC imports
 match its real exports. The original SAI milestone's disabled SAI and board
 objects are byte-identical to the clean NXP baseline.
@@ -86,8 +89,9 @@ physical register writes, recording fidelity and power transitions remain
 unqualified. The test tracks the driver's additional PM references separately
 from references held by callers; it does not execute runtime-PM internals.
 
-SAI parameter/trigger register-error handling and master-clock ownership still
-need work, as do actual PCM sample transfer and codec bias/power cleanup.
+[SAI parameter setup](sai-parameters.md) now propagates register errors and
+tracks exact master-clock ownership. Trigger/IRQ handling, reconfiguration without
+an explicit free, actual PCM sample transfer and codec bias/power cleanup remain.
 [Cyclic DMA preparation](pcm-dma.md) accepts packed 20-bit samples and now has
 checked bounds and context-failure cleanup. Fixing
 startup does not establish complete playback or capture. No kernel was flashed;
