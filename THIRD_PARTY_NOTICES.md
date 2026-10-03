@@ -15,6 +15,29 @@ replace those terms. See [scope and reproduction](development/extension-routes.m
 for the distinction between matching surviving object sections and recovering
 complete original source or link information.
 
+## Independent Bluetooth capture
+
+`development/bluetooth_capture.c` and `tests/bluetooth_connect_harness.c` are
+new GPL-2.0-or-later source, copyright 2026 Dreem research contributors.
+`development/build_bluetooth_capture.py` and `tests/test_bluetooth_capture.py`
+are new Apache-2.0 build/verification tools.
+
+`development/bluez-capture.patch` uses LGPL-2.1-or-later and modifies public
+BlueZ 5.52 `src/shared/gatt-client.c`, copyright 2014 Google Inc., with failure
+handling changes copyright 2026 Dreem research contributors. The generated
+source retains upstream notices and identifies these modifications. The
+[LGPL 2.1 text](LICENSES/LGPL-2.1-or-later.txt) is copied from that release.
+
+The builder consumes the hash-pinned public release and preserves its notices,
+`COPYING`, and `COPYING.LIB` in the private build. Shared library dependencies
+use LGPL-2.1-or-later except `ecc.c`, which retains Kenneth MacKay's 2013 BSD
+notice. `lib/bluetooth.c` and `lib/uuid.c` use GPL-2.0-or-later, with their
+Qualcomm, Maxim Krasnyansky, Marcel Holtmann and Nokia notices retained. The
+complete linked executable is therefore not an Apache-only or LGPL-only work.
+Static runtime dependencies also retain their own terms. No compiled executable,
+vendor library object, personal sensor capture or Dreem firmware is added by
+this work. See [build and qualification scope](development/bluetooth-capture.md).
+
 ## Existing file streamer repair
 
 `development/repair_streamer_poll.py`, `tests/streamer_poll_harness.c` and

@@ -1,0 +1,81 @@
+SPDX-License-Identifier: LGPL-2.1-or-later
+BlueZ 5.52 GATT failure handling for the independent capture build.
+Upstream file copyright 2014 Google Inc.; modification copyright 2026 Dreem research contributors.
+Applies only to the public source dependency, not the installed headset firmware.
+
+--- a/src/shared/gatt-client.c
++++ b/src/shared/gatt-client.c
+@@ -3,6 +3,8 @@
+  *  BlueZ - Bluetooth protocol stack for Linux
+  *
+  *  Copyright (C) 2014  Google Inc.
++ *  Capture failure handling changes, 2026-10-03:
++ *  Copyright (C) 2026 Dreem research contributors.
+  *
+  *
+  *  This library is free software; you can redistribute it and/or
+@@ -1550,23 +1552,30 @@
+ 	notify_data->chrc->ccc_write_id = 0;
+ 
+ 	if (opcode == BT_ATT_OP_ERROR_RSP) {
++		struct notify_chrc *chrc = notify_data->chrc;
++		struct bt_gatt_client *client;
++
+ 		att_ecode = process_error(pdu, length);
+-
+-		/* Failed to enable. Complete the current request and move on to
+-		 * the next one in the queue. If there was an error sending the
+-		 * write request, then just move on to the next queued entry.
++		if (!att_ecode)
++			att_ecode = BT_ATT_ERROR_UNLIKELY;
++		client = bt_gatt_client_ref(notify_data->client);
++
++		/* Retire the failed registration's list reference and count. The
++		 * ATT response still owns its separate reference until return.
+ 		 */
+-		queue_remove(notify_data->client->notify_list, notify_data);
++		queue_remove(client->notify_list, notify_data);
++		__sync_sub_and_fetch(&chrc->notify_count, 1);
++		notify_data->att_id = 0;
+ 		notify_data->callback(att_ecode, notify_data->user_data);
+-
+-		while ((notify_data = queue_pop_head(
+-					notify_data->chrc->reg_notify_queue))) {
+-
++		notify_data_unref(notify_data);
++
++		while ((notify_data = queue_pop_head(chrc->reg_notify_queue))) {
+ 			if (notify_data_write_ccc(notify_data, true,
+ 							enable_ccc_callback))
+-				return;
++				break;
+ 		}
+ 
++		bt_gatt_client_unref(client);
+ 		return;
+ 	}
+ 
+@@ -2032,6 +2041,9 @@
+ 	struct bt_gatt_client *client = user_data;
+ 	struct pdu_data pdu_data;
+ 
++	if (!pdu || length < 2)
++		return;
++
+ 	bt_gatt_client_ref(client);
+ 
+ 	memset(&pdu_data, 0, sizeof(pdu_data));
+@@ -2637,6 +2649,13 @@
+ 
+ 	if (!length)
+ 		goto success;
++
++	/* Reject an oversized response instead of silently clipping its value. */
++	if (length > BT_ATT_MAX_VALUE_LEN - op->offset) {
++		success = false;
++		att_ecode = BT_ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LEN;
++		goto done;
++	}
+ 
+ 	if (!append_chunk(op, pdu, length)) {
+ 		success = false;

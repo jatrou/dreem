@@ -122,9 +122,10 @@ compiler. The route verifier additionally requires Unicorn.
   > /private/bluetooth-source-match.json
 ```
 
-The next Bluetooth integration needs a complete source-built dependency set,
-an independent GATT client, and device-side checks of controller capabilities,
-existing connection ownership, recording fidelity and resource use. The existing
-UART2 Bluetooth link should remain under its current owner. Wired expansion
+The [independent GATT capture client](bluetooth-capture.md) now builds its complete
+dependency set from public source and passes host/ARM packet-exchange tests.
+Device-side checks of controller capabilities, existing connection ownership,
+recording fidelity and resource use remain. The existing UART2 Bluetooth link
+should remain under its current owner. Wired expansion
 still needs a physically verified connector/pad and electrical map; disabled
 device-tree controllers alone do not supply that map.

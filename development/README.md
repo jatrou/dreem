@@ -22,9 +22,12 @@ The [hardware-extension route and Bluetooth source work](extension-routes.md)
 now identifies UART2 as the stock Bluetooth transport and checks the version-3
 M4 control gates against the original ARM code. Public BlueZ 5.52 source also
 reproduces the surviving allocated sections of 20 saved library objects,
-including the GATT client/server and event loop. This supplies editable
-Bluetooth components; the complete dependency set and an additional sensor
-operating alongside the recorder remain unqualified.
+including the GATT client/server and event loop. An independent
+[Bluetooth capture client](bluetooth-capture.md) now builds its complete
+dependency set from public source, with checked long reads, subscriptions,
+connection deadlines and private output. Thirteen test groups pass on host,
+ARM emulation and host sanitizers. An additional sensor operating alongside
+the physical recorder remains unqualified.
 
 The [WM8960 audio codec](audio-findings.md) now has a source-match recipe:
 four groups of changes to public NXP source reproduce all 21 emitted functions,
