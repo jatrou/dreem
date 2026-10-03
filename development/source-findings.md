@@ -1,6 +1,6 @@
 # Firmware source and interface findings
 
-Verified from the saved firmware on October 2, 2026. Static findings below are
+Verified from the saved firmware on October 2–3, 2026 (America/New_York). Static findings below are
 not claims of current device state. Raw inputs and decompiled vendor code are
 kept outside this repository.
 
@@ -297,12 +297,19 @@ and [Microchip CAP1298](https://www.microchip.com/en-us/product/CAP1298).
 | i2c3 | I2C4 | LCD_DATA03 / LCD_DATA02 | Enabled; sensor clients opened by userspace |
 | spi0 | ECSPI1 | LCD_DATA23 MISO, LCD_DATA22 MOSI, LCD_DATA20 SCLK, LCD_DATA12 RDY | Enabled; EEG child, 20 MHz maximum in DT |
 | serial0 | UART1 | UART1_TX_DATA / UART1_RX_DATA | Enabled; console in chosen stdout path |
-| serial1 | UART2 | UART2_TX_DATA / RX_DATA / RTS_B / CTS_B | Enabled; not an established free port |
+| serial1 | UART2 | UART2_TX_DATA / RX_DATA / RTS_B / CTS_B | Enabled; stock Bluetooth HCI transport on hardware versions 0–2 |
 
 Pad tuples were matched to NXP's `imx6ul-pinfunc.h` and `imx6ull-pinfunc.h`.
 SPI1–3 and other UART aliases are disabled in this DT. A disabled controller
 is not necessarily physically accessible or free of board conflicts. Voltage,
 pull-ups, connector routing, and power budget still require physical evidence.
+
+The [extension-route verification](extension-routes.md) now checks Bluetooth
+transport selection and the version-3 M4 wake/stop gates with 37 original-ARM
+cases. The same investigation found two stripped Bluetooth library archives;
+public BlueZ 5.52 source reproduces all surviving allocated sections of 20 of
+their 30 objects, including GATT client/server components. Original relocation
+bindings, the remaining objects and native sensor integration remain unproven.
 
 ## Rebuilding boundary
 

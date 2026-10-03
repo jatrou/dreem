@@ -2,6 +2,19 @@
 
 The root Apache-2.0 license and the CC BY 4.0 photograph license apply only to material identified in [`NOTICE`](NOTICE). The following files retain separate provenance and are not relicensed by this project.
 
+## Bluetooth source matching and hardware routes
+
+`development/match_bluetooth_sources.py` and
+`development/verify_extension_routes.py` are project-authored Apache-2.0
+analysis/verification tools. They do not bundle vendor instructions, library
+objects, decompiler output or the public BlueZ source. The source matcher
+compiles selected files from the hash-pinned BlueZ 5.52 upstream release without
+modification; those upstream files retain their own license notices, including
+LGPL-2.1-or-later for shared library components. The project license does not
+replace those terms. See [scope and reproduction](development/extension-routes.md)
+for the distinction between matching surviving object sections and recovering
+complete original source or link information.
+
 ## Existing file streamer repair
 
 `development/repair_streamer_poll.py`, `tests/streamer_poll_harness.c` and

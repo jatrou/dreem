@@ -18,6 +18,14 @@ and our independent tools provide a way to add programs without replacing it.
 See [source and hardware findings](source-findings.md) for the evidence and
 remaining gaps.
 
+The [hardware-extension route and Bluetooth source work](extension-routes.md)
+now identifies UART2 as the stock Bluetooth transport and checks the version-3
+M4 control gates against the original ARM code. Public BlueZ 5.52 source also
+reproduces the surviving allocated sections of 20 saved library objects,
+including the GATT client/server and event loop. This supplies editable
+Bluetooth components; the complete dependency set and an additional sensor
+operating alongside the recorder remain unqualified.
+
 The [WM8960 audio codec](audio-findings.md) now has a source-match recipe:
 four groups of changes to public NXP source reproduce all 21 emitted functions,
 control/routing tables, and registration data in the saved kernel. The comparison
