@@ -27,10 +27,12 @@ verifier reproduces 79 cases, including startup/removal defects that a deployabl
 replacement must fix. Those matching references remain isolated. A separate
 [research board implementation](audio-lifetime.md) now integrates repaired
 startup, jack publication, stale-handle rejection and cleanup into the kernel,
-with 50 compiled ARM scenarios. The [matched codec and board stream repairs](audio-streams.md)
-are now integrated, with 188 connected execution scenarios and a documented
-matrix of the original clock-policy limits. Codec/SAI repairs and physical tests
-remain.
+with 50 compiled ARM scenarios. The [codec/SAI clock and retry repairs](audio-clocking.md)
+now configure all nine advertised rates and four widths in connected callback
+tests, with 305 scenarios covering clock arithmetic, setup failures, duplex
+isolation and cached-register retries. PCM DMA, power management, CPU-DAI cleanup
+and physical audio tests remain. The [earlier stream reference](audio-streams.md)
+preserves the original clock-policy limits for comparison.
 
 The research kernel also builds a [checked hardware identity API](hardware-identity.md)
 for the optional audio board driver. Its 43 compiled ARM checks cover provider

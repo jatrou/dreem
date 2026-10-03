@@ -117,12 +117,23 @@ resource-ownership and teardown logic by Dreem research contributors (2026).
 `development/verify_wm8960_lifetime.py` is new GPL-2.0-only verification code.
 See [research audio integration](development/audio-lifetime.md) for its limits.
 
-`development/apply_wm8960_codec_overlay.py` uses GPL-2.0-only and selects the
-same Wolfson/NXP codec reconstruction described above. It retains the original
-codec notice in generated private source. `development/verify_wm8960_streams.py`
+`development/apply_wm8960_codec_overlay.py`, `development/kernel/wm8960_clocking.inc`
+and `development/kernel/wm8960_pll.inc` use GPL-2.0-only and adapt the Wolfson/NXP
+codec reconstruction described above, with clock and error-state repairs by
+Dreem research contributors (2026). Generated private source retains the
+original codec notice. `development/verify_wm8960_streams.py`
 is new GPL-2.0-only verification code, copyright 2026 Dreem research contributors.
 See [connected stream verification](development/audio-streams.md) for the
 remaining inherited codec defects and physical-testing limits.
+
+`development/apply_sai_audio_overlay.py` uses GPL-2.0-only and adapts public
+Freescale `fsl_sai.c` (2012-2016, GPL-2.0-or-later) and `fsl_sai.h` (2012-2013,
+GPL-2.0-only). `development/kernel/regmap_force_dreem.inc` uses GPL-2.0-only
+and adapts `regmap.c`, copyright 2011 Wolfson Microelectronics. The explicit-slot
+and forced-write changes are by Dreem research contributors (2026).
+`development/verify_wm8960_clocking.py` is new GPL-2.0-only verification code.
+See [clock and retry repairs](development/audio-clocking.md) for current behavior
+and limits. The original source-match recipe remains unchanged.
 
 ## Hardware identity access
 

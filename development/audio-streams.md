@@ -1,6 +1,10 @@
 # Research audio stream integration
 
-The experimental kernel now selects the complete [source-matched WM8960
+This records the `b58392d` integration milestone. The current research build
+adds [clock planning and codec retry repairs](audio-clocking.md); use that
+document for current behavior and verification.
+
+At this milestone, the experimental kernel selected the complete [source-matched WM8960
 codec](audio-findings.md) together with the [repaired board driver](audio-lifetime.md).
 Board stream startup and parameter failures no longer publish ownership before
 their operations succeed. The codec still reproduces the saved firmware's
@@ -78,7 +82,15 @@ device measurements. It is not implemented here.
 
 ## Reproduction and evidence
 
-Build the kernel as shown in [board integration](audio-lifetime.md), and build
+To reproduce this historical milestone, first select its implementation in an
+isolated checkout:
+
+```sh
+git worktree add --detach /private/work/stream-reference b58392d
+cd /private/work/stream-reference
+```
+
+Build the kernel using that checkout's [board integration](audio-lifetime.md), and build
 the separate matched board reference as shown in [source reconstruction](audio-findings.md).
 Then run:
 

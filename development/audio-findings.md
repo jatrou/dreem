@@ -189,8 +189,10 @@ The matching reference objects stay isolated for comparison. A separate
 [research board implementation](audio-lifetime.md) now integrates publication,
 error cleanup, open-file lifetime and removal repairs into the experimental
 kernel, connected to the [checked hardware-version API](hardware-identity.md).
-The [matched codec and repaired board stream callbacks](audio-streams.md) now
-build together and have connected ARM execution checks. Those checks also
-reproduce remaining codec clock-selection and failure-state defects. SAI/clock
-interaction, codec and CPU-DAI error handling, power management, playback and
-recording fidelity remain to be qualified. Nothing was installed or flashed.
+The matching codec was integrated at the [stream-reference milestone](audio-streams.md).
+The active [research clock implementation](audio-clocking.md) now repairs codec
+clock selection, stream failure state, cached-write retries and explicit SAI
+slot widths, with connected ARM execution checks. The source-match recipe above
+remains unchanged. CPU-DAI error handling, PCM DMA packing, power management,
+physical playback and recording fidelity remain to be qualified. Nothing was
+installed or flashed.

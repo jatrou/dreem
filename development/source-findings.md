@@ -44,9 +44,10 @@ function/table match, including its observed lifetime and cleanup defects.
 The source references are not yet a deployable audio integration. A separate
 [research board implementation](audio-lifetime.md) now builds into the kernel
 with repaired jack publication and cleanup, using the
-[checked identity read API](hardware-identity.md). The [source-matched codec and
-board stream repairs](audio-streams.md) now build together; remaining clock and
-codec/SAI error-state defects are documented there. Physical qualification remains.
+[checked identity read API](hardware-identity.md). The [codec/SAI clock and retry
+repairs](audio-clocking.md) now configure the advertised rates and widths in
+connected callback tests. PCM DMA, power management, CPU-DAI cleanup and physical
+qualification remain; the unchanged matched codec is retained as a reference.
 
 The root filesystem has no matching complete source package. We still lack
 the original `nano_core`, Nerves, custom board-driver source, Buildroot board

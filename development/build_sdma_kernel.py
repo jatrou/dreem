@@ -18,6 +18,7 @@ from apply_busfreq_overlay import apply as apply_busfreq
 from apply_hardware_overlay import apply as apply_hardware
 from apply_wm8960_overlay import apply as apply_wm8960
 from apply_wm8960_codec_overlay import apply as apply_wm8960_codec
+from apply_sai_audio_overlay import apply as apply_sai_audio
 from build_adc_module import REVISION, RAW_HASH, SHARED, sha
 from recover_exports import recover, module_versions
 
@@ -63,7 +64,9 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
         inputs += [here / "apply_wm8960_overlay.py", here / "wm8960_board_reference.py",
                    here / "kernel/wm8960_jack.inc", here / "kernel/wm8960_lifetime.inc",
                    here / "kernel/wm8960_streams.inc", here / "apply_wm8960_codec_overlay.py",
-                   here / "build_wm8960_reference.py"]
+                   here / "build_wm8960_reference.py", here / "apply_sai_audio_overlay.py",
+                   here / "kernel/wm8960_clocking.inc", here / "kernel/wm8960_pll.inc",
+                   here / "kernel/regmap_force_dreem.inc"]
     source_hashes = {str(p.relative_to(here)): sha(p) for p in inputs}
     output.mkdir(mode=0o700)
     tree, kernel, module = (output / name for name in ("source", "kernel", "module"))
@@ -84,6 +87,7 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
     if wm8960:
         apply_wm8960(tree)
         apply_wm8960_codec(tree)
+        apply_sai_audio(tree)
     (kernel / ".config").write_text(config + "\nCONFIG_DREEM_EEG_SDMA=y\n" +
                                     ("CONFIG_DREEM_BUSFREQ=y\n" if busfreq else "") +
                                     ("CONFIG_DREEM_HW_VERSION=y\n" if hardware else "") +
@@ -145,6 +149,9 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
     if wm8960:
         report["wm8960_board_object_sha256"] = sha(kernel / "sound/soc/fsl/imx-wm8960.o")
         report["wm8960_codec_object_sha256"] = sha(kernel / "sound/soc/codecs/wm8960.o")
+        report["sai_object_sha256"] = sha(kernel / "sound/soc/fsl/fsl_sai.o")
+        report["regmap_object_sha256"] = sha(kernel / "drivers/base/regmap/regmap.o")
+        report["wm8960_codec_repaired"] = True
         report["wm8960_board_active_when_selected"] = True
         report["wm8960_codec_integrated"] = True
         report["hardware_version_read_automatically"] = True
@@ -171,7 +178,7 @@ def main():
     parser.add_argument("--hardware-version", action="store_true",
                         help="also build the checked internal Femto hardware-version read API")
     parser.add_argument("--wm8960-board", action="store_true",
-                        help="select the experimental Femto board and matched codec; requires --hardware-version")
+                        help="select the experimental Femto board, repaired codec and SAI slots; requires --hardware-version")
     args = parser.parse_args()
     os.umask(0o077)
     print(json.dumps(build(args.nxp_source, args.baseline_build, args.stock_kernel_elf,

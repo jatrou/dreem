@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /* Stream handling adapted from NXP imx-wm8960.c, copyright 2015-2016
  * Freescale Semiconductor. State/clock ownership fixes by Dreem contributors,
- * copyright 2026. Clock ratios retain the matched board's policy for now.
+ * copyright 2026. Codec-master mode uses two explicit 32-bit serial slots.
  */
 static int imx_hifi_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params)
@@ -12,7 +12,7 @@ static int imx_hifi_hw_params(struct snd_pcm_substream *substream,
 	struct imx_wm8960_data *data = snd_soc_card_get_drvdata(rtd->card);
 	bool tx = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	unsigned int rate = params_rate(params), width = params_width(params);
-	unsigned int fmt, pll_out;
+	unsigned int fmt;
 	int ret;
 
 	if (!data->is_stream_opened[tx])
@@ -35,6 +35,9 @@ static int imx_hifi_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_dai_set_fmt(codec_dai, fmt);
 	if (ret)
 		return ret;
+	ret = snd_soc_dai_set_bclk_ratio(codec_dai, data->is_codec_master ? 64 : 0);
+	if (ret)
+		return ret;
 	if (!data->is_codec_master) {
 		ret = snd_soc_dai_set_tdm_slot(cpu_dai, 0, 0, 2, width);
 		if (ret)
@@ -43,18 +46,20 @@ static int imx_hifi_hw_params(struct snd_pcm_substream *substream,
 		if (ret)
 			return ret;
 	} else {
+		ret = snd_soc_dai_set_tdm_slot(cpu_dai, 0, 0, 2, 32);
+		if (ret)
+			return ret;
 		ret = snd_soc_dai_set_sysclk(cpu_dai, 0, 0, SND_SOC_CLOCK_IN);
 		if (ret)
 			return ret;
 		data->clk_frequency = clk_get_rate(data->codec_clk);
 		if (!data->clk_frequency)
 			return -EINVAL;
-		pll_out = rate * (width == 24 ? 768 : 512);
-		ret = snd_soc_dai_set_pll(codec_dai, WM8960_SYSCLK_PLL, 0,
-					data->clk_frequency, pll_out);
+		ret = snd_soc_dai_set_pll(codec_dai, WM8960_SYSCLK_AUTO, 0,
+					data->clk_frequency, 0);
 		if (ret)
 			return ret;
-		ret = snd_soc_dai_set_sysclk(codec_dai, WM8960_SYSCLK_PLL, pll_out, 0);
+		ret = snd_soc_dai_set_sysclk(codec_dai, WM8960_SYSCLK_AUTO, 0, 0);
 		if (ret)
 			return ret;
 	}
