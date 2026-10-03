@@ -84,6 +84,14 @@ No original instruction bytes or vendor decompiler output are distributed.
 See [optical FIFO findings](development/optical-fifo.md) for component references
 and the distinction between modeled loss and physical acquisition evidence.
 
+`development/optical_sensor.c`, `development/optical_sensor.h`,
+`development/verify_optical_lifecycle.py` and `tests/test_optical_sensor.py`
+also use Apache-2.0. They independently implement and verify an owned sensor
+lifecycle using public component register documentation and observed behavior.
+The original cleanup verifier reads its instructions only from the privately
+supplied executable. See [optical lifecycle findings](development/optical-lifecycle.md)
+for primary documentation, identity limits and verification boundaries.
+
 ## Feature-trial tooling
 
 `development/trial_exec.c`, `development/build_feature_trial.py`,

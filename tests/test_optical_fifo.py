@@ -27,8 +27,10 @@ def build_harnesses(output):
                         *flags, '-I', str(ROOT/'development'),
                         str(ROOT/'tests/optical_fifo_harness.c'),
                         *[str(ROOT/'development'/f) for f in
-                          ('sensor_i2c.c', 'optical_samples.c', 'optical_fifo.c')],
-                        '-Wl,--wrap=ioctl,--wrap=__ioctl_time64', '-o', str(exe)],
+                          ('sensor_i2c.c', 'optical_samples.c', 'optical_fifo.c',
+                           'optical_sensor.c')],
+                        '-Wl,--wrap=ioctl,--wrap=__ioctl_time64,--wrap=nanosleep,--wrap=__nanosleep64',
+                        '-o', str(exe)],
                        check=True, capture_output=True)
         builds.append((name, runner + [str(exe)]))
     return builds

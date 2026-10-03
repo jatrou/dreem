@@ -115,14 +115,17 @@ Its caller subsequently selects mode 3. Under the
 that mode produces red then infrared triplets. The configuration requests
 18-bit conversion, 100 samples/second, an 8192 nA ADC range, no sample averaging
 and no FIFO rollover. This interprets the programmed values; it does not measure
-effective sample timing. The current datasheet does not list register `0x30`,
-so its observed legacy write is recorded as evidence, not prescribed as a new
-driver configuration.
+effective sample timing. The current datasheet does not list register `0x30`.
+The [lifecycle source investigation](optical-lifecycle.md) now identifies it in
+Maxim's original 2016 datasheet as the proximity threshold; the newer revision
+history records removal of that function. The new polling lifecycle does not
+depend on the legacy proximity feature.
 
 The firmware names the device MAX30101, but its identity check alone is not
 unique: the [MAX30102 datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/max30102.pdf)
 also specifies part ID `0x15`. That check cannot prove a green LED is present.
-Physical identity must be established before planning a third optical channel.
+The lifecycle investigation found that MAX30105 shares the ID too. Physical
+identity must be established before planning a third optical channel.
 
 The recording processor consumes an optical row on the same every-fifth-EEG
 iteration as motion. The [optical cadence and FIFO reconstruction](optical-fifo.md)
@@ -163,9 +166,11 @@ original code totals 1,272 bytes; all system calls and hardware responses are
 modeled. Fixture-result SHA-256:
 `1c013f3f3dd34500bde6029ed6107ea3d420dc040e0ebc4eda139eab65ab2f7d`.
 
-No full vendor process, live adapter, physical sensor or complete recording
-pipeline is executed by these checks. Sensor lifecycle, physical FIFO recovery,
-measured producer timing, hardware identity, power/pad routing and device
-qualification remain open. The independent transport does not patch the
+The [owned sensor lifecycle](optical-lifecycle.md) now adds checked reset,
+configuration and shutdown source around the FIFO reader. No full vendor
+process, live adapter, physical sensor or complete recording pipeline is
+executed by these checks. Owner integration, physical FIFO recovery, measured
+producer timing, hardware identity, power/pad routing and device qualification
+remain open. The independent transport does not patch the
 installed `nano_core`, and the source has not been deployed. Firmware/decompiler
 output remains private.

@@ -88,7 +88,10 @@ Every fault except the explicitly retryable equal-pointer case quarantines the
 reader. Later drain calls return `-ESTALE` without I/O. Recovery belongs to the
 owning sensor lifecycle: it must verify hardware resynchronization before
 calling init again. Merely clearing software state is not recovery. This
-component intentionally supplies no reset sequence or automatic retry.
+component intentionally supplies no reset sequence or automatic retry. The
+separate [owned sensor lifecycle](optical-lifecycle.md) now supplies explicit
+reset/start and checked shutdown, with connected host/ARM model tests. Hardware
+ownership and physical qualification still belong to the integration.
 
 ## Limits of overflow evidence
 
@@ -129,5 +132,5 @@ UndefinedBehaviorSanitizer enabled, covering 1,429 synthetic result rows.
 Original instructions and decompiler output remain private. The public verifier
 requires the already acquired, hash-pinned executable. The tests open no sensor.
 Physical identity, electrical behavior, sustained bus timing, power management,
-exclusive-owner integration and hardware reset/recovery remain unfinished.
+exclusive-owner integration and physical reset/recovery remain unfinished.
 These checks do not qualify deployment or establish recording fidelity.

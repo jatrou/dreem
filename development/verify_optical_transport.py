@@ -54,18 +54,23 @@ def pattern(length):
 
 
 class Stock:
-    def __init__(self, path):
+    def __init__(self, path, additional_ranges=(), additional_services=None):
         raw = path.read_bytes()
         require(len(raw) == 14_170_096 and hashlib.sha256(raw).hexdigest() == CORE_SHA256,
                 'unreviewed executable')
         elf = ELFFile(io.BytesIO(raw))
+        self.ranges = RANGES + tuple(additional_ranges)
+        self.services = SERVICES | (additional_services or {})
         self.cpu = Uc(UC_ARCH_ARM, UC_MODE_ARM)
         self.cpu.ctl_set_cpu_model(UC_CPU_ARM_CORTEX_A7)
-        for page in (RETURN, 0x16000, 0x1c000, 0x27000, 0x90000, 0x91000):
+        pages = {RETURN, *(address & ~4095 for address in self.services)}
+        for start, end in self.ranges:
+            pages.update(range(start & ~4095, (end + 4095) & ~4095, 4096))
+        for page in sorted(pages):
             self.cpu.mem_map(page, 0x1000, 5)
         for base, length in ((DATA, 0x4000), (0xda2000, 0x1000), (0xeca000, 0x1000)):
             self.cpu.mem_map(base, length, 3)
-        for start, end in RANGES:
+        for start, end in self.ranges:
             for segment in elf.iter_segments():
                 base = segment['p_vaddr']
                 if segment['p_type'] == 'PT_LOAD' and base <= start < end <= base + segment['p_filesz']:
@@ -89,9 +94,9 @@ class Stock:
         self.cpu.mem_write(OUTPUT - 4, b'\xa5' * 264)
 
     def code(self, cpu, address, size, _):
-        name = SERVICES.get(address)
+        name = self.services.get(address)
         if name is None:
-            require(any(start <= address < end for start, end in RANGES),
+            require(any(start <= address < end for start, end in self.ranges),
                     f'execution left selected code at {address:#x}')
             return
         a, b, c, d = [cpu.reg_read(r) for r in REGISTERS]
