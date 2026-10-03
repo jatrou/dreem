@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Bound research SAI cyclic DMA and expose the PCM objects for verification.
+"""Repair research PCM DMA preparation and control, with verification objects.
 
 Adapts public NXP imx-sdma.c (2010 Sascha Hauer/Pengutronix, 2004-2016
-Freescale) and imx-pcm-dma.c (2009 Sascha Hauer). Generated source retains
-their notices. Apply after the EEG SDMA overlay to a disposable source copy.
+Freescale), imx-pcm-dma.c (2009 Sascha Hauer), and pcm_dmaengine.c
+(2012 Analog Devices; additional upstream credits retained in generated code).
+Apply after the EEG SDMA overlay to a disposable source copy.
 """
 import hashlib
 
@@ -71,6 +72,63 @@ def apply(source):
 	.period_bytes_max = 65532, /* SDMA_BD_MAX_CNT in imx-sdma.c */
 #else
 ''' + before + '\n#endif')
+    path.write_text(code)
+    path = source / 'sound/core/pcm_dmaengine.c'
+    code = path.read_text()
+    before = '\tunsigned long flags = DMA_CTRL_ACK;'
+    if code.count(before) != 1:
+        raise ValueError('unexpected PCM submission declaration')
+    code = code.replace(before, before + '''
+#ifdef CONFIG_DREEM_WM8960
+	dma_cookie_t cookie;
+#endif''')
+    before = '\n\tprtd->pos = 0;\n'
+    if code.count(before) != 1:
+        raise ValueError('unexpected PCM position initialization')
+    code = code.replace(before, '\n#ifndef CONFIG_DREEM_WM8960' + before + '#endif\n')
+    before = '\tprtd->cookie = dmaengine_submit(desc);'
+    if code.count(before) != 1:
+        raise ValueError('unexpected PCM submission anchor')
+    code = code.replace(before, '''#ifdef CONFIG_DREEM_WM8960
+	cookie = dmaengine_submit(desc);
+	if (dma_submit_error(cookie))
+		return cookie;
+	prtd->cookie = cookie;
+	prtd->pos = 0;
+#else
+''' + before + '\n#endif')
+    start = code.index('int snd_dmaengine_pcm_trigger(')
+    end = code.index('EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_trigger);', start)
+    code = code[:start] + '''#ifdef CONFIG_DREEM_WM8960
+int snd_dmaengine_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
+{
+	struct dmaengine_pcm_runtime_data *prtd = substream_to_prtd(substream);
+	int ret;
+
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:
+		ret = dmaengine_pcm_prepare_and_submit(substream);
+		if (ret)
+			return ret;
+		dma_async_issue_pending(prtd->dma_chan);
+		return 0;
+	case SNDRV_PCM_TRIGGER_RESUME:
+	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+		return dmaengine_resume(prtd->dma_chan);
+	case SNDRV_PCM_TRIGGER_SUSPEND:
+		if (substream->runtime->info & SNDRV_PCM_INFO_PAUSE)
+			return dmaengine_pause(prtd->dma_chan);
+		return dmaengine_terminate_all(prtd->dma_chan);
+	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		return dmaengine_pause(prtd->dma_chan);
+	case SNDRV_PCM_TRIGGER_STOP:
+		return dmaengine_terminate_all(prtd->dma_chan);
+	default:
+		return -EINVAL;
+	}
+}
+#else
+''' + code[start:end] + '#endif\n' + code[end:]
     path.write_text(code)
     for folder, name in (('sound/core', 'pcm_dmaengine.o'),
                          ('sound/soc/fsl', 'imx-pcm-dma.o')):

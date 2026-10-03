@@ -156,6 +156,7 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
         report["regmap_object_sha256"] = sha(kernel / "drivers/base/regmap/regmap.o")
         report["pcm_object_sha256"] = sha(kernel / "sound/core/pcm_dmaengine.o")
         report["imx_pcm_object_sha256"] = sha(kernel / "sound/soc/fsl/imx-pcm-dma.o")
+        report["virtual_dma_object_sha256"] = sha(kernel / "drivers/dma/virt-dma.o")
         report["wm8960_codec_repaired"] = True
         report["wm8960_board_active_when_selected"] = True
         report["wm8960_codec_integrated"] = True

@@ -148,11 +148,15 @@ contributors (2026). `development/verify_sai_parameters.py` is new GPL-2.0-only
 verification code. See [SAI parameter verification](development/sai-parameters.md).
 
 `development/apply_pcm_audio_overlay.py` uses GPL-2.0-or-later and adapts public
-NXP `imx-sdma.c` (Sascha Hauer/Pengutronix, 2010; Freescale, 2004-2016) and
-`imx-pcm-dma.c` (Sascha Hauer, 2009). Generated source retains those notices.
-The bounds, context-failure cleanup and period-limit changes are by Dreem
-research contributors (2026). `development/verify_pcm_dma.py` is new GPL-2.0-only
-verification code. See [PCM cyclic verification](development/pcm-dma.md).
+NXP `imx-sdma.c` (Sascha Hauer/Pengutronix, 2010; Freescale, 2004-2016),
+`imx-pcm-dma.c` (Sascha Hauer, 2009), and `pcm_dmaengine.c` (Analog Devices,
+2012; based on work by Sascha Hauer, Freescale, Lennert Buytenhek and Applied
+Data Systems). Generated source retains the complete upstream notices.
+The bounds, context-failure cleanup, period-limit and submission/control changes
+are by Dreem research contributors (2026). `development/verify_pcm_dma.py` and
+`development/verify_pcm_trigger.py` are new GPL-2.0-only verification code.
+See [PCM cyclic verification](development/pcm-dma.md) and
+[PCM submission/control verification](development/pcm-trigger.md).
 
 ## Hardware identity access
 

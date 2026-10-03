@@ -121,7 +121,8 @@ ignored explicit slot width. The matching reference codec is still compared
 against the saved firmware.
 
 The complete kernel and ADC module build, and all 44 ADC imports match the
-rebuilt kernel. The 362 SAI parameter, 58 PCM, 58 SAI lifetime, 50 board-lifetime, 43 identity,
+rebuilt kernel. The 69 PCM trigger, 362 SAI parameter, 58 PCM preparation, 58 SAI lifetime,
+50 board-lifetime, 43 identity,
 76 connected EEG, 617 bus-frequency and 58 DDR preparation checks also pass on
 this build. The earlier SAI milestone verified that, with the audio option
 disabled, board/codec/SAI objects are byte-identical to the existing NXP baseline.
@@ -131,9 +132,9 @@ NXP control compiled at the same source path; its warning strings embed
 
 The [board integration record](audio-lifetime.md) owns the kernel and board
 hashes. The enabled codec SHA-256 is
-`3457c013b74f6a94e34b387e65112e02920b1e8895efff69e313e4b12d163af5`;
-SAI is `f2a2ad419a09ccb0c6c420ba7d998226b58d3f6d78cd5714b165c6851c7e7d47`;
-regmap is `487edcc33487404799c8dfb646caa2445902522905be4dab3a6d2e7c89921675`.
+`cb4d9973ecb5c3bbdf19dbdd66e9286d3e018922321a8388b5150dcd9257df22`;
+SAI is `db3db494fb27cde3952fdd4b4c5a896153b859d691574a76fbb788f8518f2ef4`;
+regmap is `090aa8f81a572fafc042d820be4abc4dffc6fa0472da5a533701a278cf05471c`.
 Private manifests pin the source inputs, artifacts and verifier dependencies.
 
 [SAI startup and shutdown](sai-lifetime.md) now have separate resource rollback
@@ -141,7 +142,8 @@ and connected callback tests on this kernel. The [PCM cyclic-path verification](
 corrects this record's earlier packed-20 claim: PCM requests a three-byte bus
 width, and cyclic SDMA preparation accepts it. The rejection previously cited
 belongs to a different scatter/gather path. [SAI parameter setup](sai-parameters.md)
-now handles register errors and clock ownership. Actual sample packing/transfer,
+now handles register errors and clock ownership. [PCM submission/control](pcm-trigger.md)
+now propagates DMA errors. Actual sample packing/transfer and DMA termination,
 ALSA negotiation/unwind internals, SAI trigger/IRQ handling and reconfiguration,
 power management, concurrent scheduling, physical clock timing, analogue output
 and recording fidelity remain unqualified. These callback tests do not establish

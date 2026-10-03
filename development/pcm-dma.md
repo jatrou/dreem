@@ -81,13 +81,14 @@ The context sequences include persistent failure, released allocations, and a
 subsequent modeled successful channel-zero transaction. They do not simulate a
 real controller recovering from a latched timeout. Actual linked instructions
 execute PCM configuration, SDMA channel/context preparation, cyclic descriptor
-construction and release. The verifier compares all 22,975 SDMA, 1,240 core PCM
+construction and release. The verifier compares all 22,975 SDMA, 1,216 core PCM
 and 648 i.MX PCM function/table bytes with the linked kernel, including checked
 relocations and strings. ROM entry addresses come from the public i.MX6UL table;
 the headset's active ROM/firmware contents are not verified by this fixture.
 
-The same kernel passes the 362 SAI parameter, 58 SAI lifetime, 305 clock, 50 board lifetime,
-43 identity, 76 connected EEG, 617 bus-frequency and 58 DDR preparation cases.
+The same kernel passes the 69 PCM trigger, 362 SAI parameter, 58 SAI lifetime,
+305 clock, 50 board lifetime, 43 identity, 76 connected EEG, 617 bus-frequency
+and 58 DDR preparation cases.
 The original codec source matcher also passes its seven negative controls after
 the shared object matcher was extended to accept objects without init/exit text.
 All 44 ADC module imports match the rebuilt kernel exports.
@@ -102,12 +103,12 @@ The enabled object SHA-256 values are:
 
 | Object | SHA-256 |
 | --- | --- |
-| SDMA | `b4c1d5fc253c30b5523d19f43df06efe2a4db89bd9dd2d42606ad080bc4f158e` |
-| Core PCM | `7db34db72587729d6c069fc8aea35345f5ccbe0e591b58eeb871a0e5e2e3a99c` |
-| i.MX PCM | `3f3b329318daf824ba679ff05eebb070f42cae14ce7cd0b117d9019717c797f6` |
+| SDMA | `d247bbf10ab2a13f50e9956635c7c3e1326a9ff6b55df84efac09ab0b4672512` |
+| Core PCM | `5b0ddf4f71d6f2963adfd1cf071d390d01ed1b862d1a788bc1fd68df5fad62e8` |
+| i.MX PCM | `2cf3afe0ef7bf08dc876f70ccb3b3df8fd6f6333bee0757edda173bd4f6fbf4a` |
 
 [Board integration](audio-lifetime.md) owns the kernel hash. Private manifests
-pin all 36 build-source inputs, 11 artifacts, verifier sources and reports.
+pin all 36 build-source inputs, 12 artifacts, verifier sources and reports.
 
 ## Remaining boundaries
 
@@ -115,6 +116,9 @@ Allocation services, register access and channel-zero hardware transactions are
 modeled. Buffer allocation covers the successful IRAM path, not DMA-allocation
 fallback. The checks do not execute the ROM transfer script, submit DMA, deliver
 sample payloads, schedule completion IRQs, or qualify residue/pause behavior.
-[SAI parameter errors](sai-parameters.md) now have separate checks. Trigger/IRQ
-handling, reconfiguration without an explicit free, codec bias/power transitions, physical clocks,
+[PCM submission/control](pcm-trigger.md) separately executes actual virtual DMA
+submission and SDMA issue/pause/resume instructions with modeled hardware.
+[SAI parameter errors](sai-parameters.md) also have separate checks. SAI trigger/IRQ
+handling, coordinated DMA termination and ALSA rollback, reconfiguration without
+an explicit free, codec bias/power transitions, physical clocks,
 analogue output and recording fidelity remain unfinished. Nothing was flashed.

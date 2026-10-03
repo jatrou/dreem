@@ -50,7 +50,9 @@ connected callback tests. [SAI startup and shutdown](sai-lifetime.md) now balanc
 resources after failures. [PCM cyclic preparation](pcm-dma.md) now bounds
 requests and unwinds context-load failures, retaining packed-20 support.
 [SAI parameter setup](sai-parameters.md) now propagates register errors and
-tracks exact clock ownership. Actual sample transfer, trigger/IRQ errors,
+tracks exact clock ownership. [PCM submission/control](pcm-trigger.md) now checks
+DMA results. Actual sample transfer, coordinated DMA termination and ALSA rollback,
+SAI trigger/IRQ errors,
 reconfiguration without an explicit free, power management and physical
 qualification remain; the unchanged matched codec is retained as a reference.
 

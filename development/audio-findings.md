@@ -196,6 +196,8 @@ slot widths, with connected ARM execution checks. The source-match recipe above
 remains unchanged. [SAI startup/close](sai-lifetime.md) now repairs resource
 rollback. [PCM cyclic preparation](pcm-dma.md) now checks descriptor bounds,
 sample widths and context-failure cleanup. [SAI parameter setup](sai-parameters.md)
-now checks register errors and clock ownership. Trigger/IRQ error handling,
+now checks register errors and clock ownership. [PCM submission/control](pcm-trigger.md)
+now checks DMA results. SAI trigger/IRQ error handling, coordinated DMA termination
+and ALSA rollback,
 reconfiguration without an explicit free, actual DMA sample transfer, power management, physical playback and recording
 fidelity remain to be qualified. Nothing was installed or flashed.
