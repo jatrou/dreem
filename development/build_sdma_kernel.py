@@ -21,6 +21,7 @@ from apply_wm8960_codec_overlay import apply as apply_wm8960_codec
 from apply_sai_audio_overlay import apply as apply_sai_audio
 from apply_pcm_audio_overlay import apply as apply_pcm_audio
 from apply_pcm_lifetime_overlay import apply as apply_pcm_lifetime
+from apply_soc_trigger_overlay import apply as apply_soc_trigger
 from build_adc_module import REVISION, RAW_HASH, SHARED, sha
 from recover_exports import recover, module_versions
 
@@ -70,7 +71,8 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
                    here / "kernel/wm8960_clocking.inc", here / "kernel/wm8960_pll.inc",
                    here / "kernel/regmap_force_dreem.inc", here / "kernel/sai_lifetime.inc",
                    here / "apply_pcm_audio_overlay.py", here / "kernel/sai_parameters.inc",
-                   here / "apply_pcm_lifetime_overlay.py", here / "kernel/sdma_audio_lifetime.inc"]
+                   here / "apply_pcm_lifetime_overlay.py", here / "kernel/sdma_audio_lifetime.inc",
+                   here / "apply_soc_trigger_overlay.py", here / "kernel/soc_trigger_dreem.inc"]
     source_hashes = {str(p.relative_to(here)): sha(p) for p in inputs}
     output.mkdir(mode=0o700)
     tree, kernel, module = (output / name for name in ("source", "kernel", "module"))
@@ -94,6 +96,7 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
         apply_sai_audio(tree)
         apply_pcm_audio(tree)
         apply_pcm_lifetime(tree)
+        apply_soc_trigger(tree)
     (kernel / ".config").write_text(config + "\nCONFIG_DREEM_EEG_SDMA=y\n" +
                                     ("CONFIG_DREEM_BUSFREQ=y\n" if busfreq else "") +
                                     ("CONFIG_DREEM_HW_VERSION=y\n" if hardware else "") +
@@ -161,6 +164,7 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
         report["imx_pcm_object_sha256"] = sha(kernel / "sound/soc/fsl/imx-pcm-dma.o")
         report["virtual_dma_object_sha256"] = sha(kernel / "drivers/dma/virt-dma.o")
         report["generic_pcm_object_sha256"] = sha(kernel / "sound/soc/soc-generic-dmaengine-pcm.o")
+        report["soc_pcm_object_sha256"] = sha(kernel / "sound/soc/soc-pcm.o")
         report["wm8960_codec_repaired"] = True
         report["wm8960_board_active_when_selected"] = True
         report["wm8960_codec_integrated"] = True

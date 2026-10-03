@@ -114,15 +114,16 @@ files were restored after the comparison.
 [PCM trigger](pcm-trigger.md) owns the virtual DMA hash; and
 [board integration](audio-lifetime.md) owns the kernel hash. The generic PCM
 object SHA-256 is
-`e9be41a45b1a8ae28e8b2f4300892914d17c0200000476023b27a7c6a86639cb`.
-Private manifests bind 38 build-source inputs, 13 artifacts and twelve reports.
+`0f8081b490e29c1df40b17cac2429af6f50d1f2a415a93663227e6b469f9f179`.
+Private manifests bind build-source inputs, artifacts and reports;
+[direct-link trigger verification](soc-trigger.md) records the current set.
 
 ## Remaining boundaries
 
 The delay does not detect a wedged bus or prove physical transfer completion.
 No sample DMA, device boot, full ALSA core, concurrent scheduler or independent
-device unbind is qualified here. ASoC trigger rollback, SAI trigger/IRQ errors,
+device unbind is qualified here. [Direct-link ASoC rollback](soc-trigger.md)
+now uses this retirement mechanism in connected checks. SAI trigger/IRQ errors,
 parameter changes without an explicit free, power management, physical clocks
-and playback/recording remain unfinished. The SAI trigger can still fail after
-platform DMA has started; this retirement mechanism is a prerequisite for that
-rollback repair. Nothing was installed or flashed.
+and playback/recording remain unfinished. The existing SAI trigger still needs
+checked register operations to report those failures. Nothing was installed or flashed.

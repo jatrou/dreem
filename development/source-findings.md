@@ -52,8 +52,9 @@ requests and unwinds context-load failures, retaining packed-20 support.
 [SAI parameter setup](sai-parameters.md) now propagates register errors and
 tracks exact clock ownership. [PCM submission/control](pcm-trigger.md) now checks
 DMA results. [DMA retirement](pcm-lifetime.md) now orders callback drain and
-deferred release. Actual sample transfer, physical stop timing, ALSA rollback
-and SAI trigger/IRQ errors,
+deferred release. [Direct-link ASoC rollback](soc-trigger.md) now unwinds failed
+triggers through DMA retirement. Actual sample transfer, physical stop timing,
+full ALSA linked-stream/DPCM handling, SAI trigger/IRQ errors,
 reconfiguration without an explicit free, power management and physical
 qualification remain; the unchanged matched codec is retained as a reference.
 

@@ -168,6 +168,15 @@ research contributors (2026). Generated source retains the upstream notices.
 See [audio DMA lifetime](development/pcm-lifetime.md) for the pinned upstream
 source, timing assumption and verification boundaries.
 
+`development/apply_soc_trigger_overlay.py` and
+`development/kernel/soc_trigger_dreem.inc` use GPL-2.0-or-later. They adapt the
+public NXP ASoC PCM interfaces, with original attribution to Wolfson
+Microelectronics (2005), Openedhand (2005), Slimlogic (2010) and Texas Instruments
+(2010). Generated source retains the upstream notices. Direct-link rollback
+and verification changes are by Dreem research contributors (2026).
+`development/verify_soc_trigger.py` is new GPL-2.0-only verification code.
+See [direct audio trigger rollback](development/soc-trigger.md) for its scope.
+
 ## Hardware identity access
 
 `development/apply_hardware_overlay.py` uses GPL-2.0-only and contains small

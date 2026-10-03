@@ -132,7 +132,7 @@ def compare(obj, image):
         relocated = bytearray(original)
         actual = bytes_at(image, address, len(original))
         relocs = obj.relocations.get(index, [])
-        string_values, lows = {}, {}
+        string_values, movs = {}, {}
         for r, _ in relocs:
             kind, symbol_index, offset = r['r_info_type'], r['r_info_sym'], r['r_offset']
             require(offset % 4 == 0 and offset + 4 <= len(original), 'invalid relocation offset')
@@ -146,21 +146,25 @@ def compare(obj, image):
             if kind == 2:
                 validate_string(target, word, observed)
                 string_values[offset] = (observed - word) & 0xffffffff
-            elif kind == 43:
-                key = (symbol_index, (word >> 12) & 15)
-                require(key not in lows, 'overlapping string MOVW pair')
-                lows[key] = (offset, imm(observed), signed16(imm(word)))
-            elif kind == 44:
-                key = (symbol_index, (word >> 12) & 15)
-                require(key in lows, 'string MOVT without MOVW')
-                low_offset, low, addend = lows.pop(key)
-                require(signed16(imm(word)) == addend, 'different string MOV pair addends')
-                pointer = low | (imm(observed) << 16)
-                validate_string(target, addend, pointer)
-                string_values[low_offset] = string_values[offset] = (pointer - addend) & 0xffffffff
+            elif kind in (43, 44):
+                # A compiler can reuse one MOVW for MOVTs on different paths.
+                # Relocations bind a symbol/addend, not adjacent instructions or
+                # a particular register. Require every observed half to agree,
+                # then check the complete pointed-to string and all code bytes.
+                key = (symbol_index, signed16(imm(word)))
+                halves = movs.setdefault(key, {43: [], 44: []})
+                halves[kind].append((offset, imm(observed)))
             else:
                 raise ValueError('unsupported string relocation: ' + str(kind))
-        require(not lows, 'unpaired string MOVW')
+        for (symbol_index, addend), halves in movs.items():
+            require(halves[43] and halves[44], 'incomplete string MOV address')
+            low = {value for _, value in halves[43]}
+            high = {value for _, value in halves[44]}
+            require(len(low) == len(high) == 1, 'inconsistent string MOV address halves')
+            pointer = low.pop() | (high.pop() << 16)
+            validate_string(obj.table.get_symbol(symbol_index), addend, pointer)
+            for offset, _ in halves[43] + halves[44]:
+                string_values[offset] = (pointer - addend) & 0xffffffff
         seen = set()
         for r, _ in relocs:
             kind, offset = r['r_info_type'], r['r_offset']

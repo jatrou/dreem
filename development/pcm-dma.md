@@ -103,12 +103,13 @@ The enabled object SHA-256 values are:
 
 | Object | SHA-256 |
 | --- | --- |
-| SDMA | `b1e4fcdfdbe2c34cd2bb804c95a1e0e647de7dcb95a67216371915cd0b774d95` |
-| Core PCM | `51b552dd2970762a56c835d750a0eb561e68e46f4df86a86df478f50557ce3f3` |
-| i.MX PCM | `e734b1a28a6cf64c93ceb966298a1dfade6170181203d4938e5be6767d905df3` |
+| SDMA | `d71e643e233a1b9816db98eadc483f89eb5acb444715cbf9ca23121f6e038fa0` |
+| Core PCM | `d38ca5063e4eaa0cdfce3cf57753f0cd30c58b4e1486340332f3dedadc6ee65c` |
+| i.MX PCM | `bfccdcfbedbb340fe997b735d678baeaa5b2bd8930b62d4bd799f6793898b2d8` |
 
 [Board integration](audio-lifetime.md) owns the kernel hash. Private manifests
-pin all 38 build-source inputs, 13 artifacts, verifier sources and reports.
+pin build-source inputs, artifacts, verifier sources and reports;
+[direct-link trigger verification](soc-trigger.md) records the current set.
 
 ## Remaining boundaries
 
@@ -119,7 +120,8 @@ sample payloads, schedule completion IRQs, or qualify residue/pause behavior.
 [PCM submission/control](pcm-trigger.md) separately executes actual virtual DMA
 submission and SDMA issue/pause/resume instructions with modeled hardware.
 [DMA retirement](pcm-lifetime.md) separately checks callback and storage lifetime.
-[SAI parameter errors](sai-parameters.md) also have separate checks. SAI trigger/IRQ
-handling, physical DMA stop timing and ALSA rollback, reconfiguration without
+[SAI parameter errors](sai-parameters.md) and [direct-link ASoC rollback](soc-trigger.md)
+also have separate checks. SAI trigger/IRQ handling, physical DMA stop timing,
+full ALSA linked-stream/DPCM handling, reconfiguration without
 an explicit free, codec bias/power transitions, physical clocks,
 analogue output and recording fidelity remain unfinished. Nothing was flashed.

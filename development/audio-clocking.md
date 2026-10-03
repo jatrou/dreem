@@ -132,9 +132,9 @@ NXP control compiled at the same source path; its warning strings embed
 
 The [board integration record](audio-lifetime.md) owns the kernel and board
 hashes. The enabled codec SHA-256 is
-`0340fc22de1ee27f42818e82f765fdddc0bb6a31b5b691ef4fefa1bad05696e9`;
-SAI is `a1a7ca4b902d16cc4adef3e0db6a4a5e199a3ef83ced12eac3dac29d17b1e731`;
-regmap is `8b0dd9e3129a2b9dc1e8f84a71ada682ce63e8f4b9d7cb30c7663d50814e1ce3`.
+`b9a23975d1a22230b189f5c72a2c79b4d30fd5f113053a9843c1b7eb211daf77`;
+SAI is `38878215cee09d00bf6150a9af934f5d20d5b1f73ff04a61f7255f3b05a40bd4`;
+regmap is `875edc2da8c5ae6d9bc38053e7ebb2cc1b500e4290267e2b9fb3cb41482ee400`.
 Private manifests pin the source inputs, artifacts and verifier dependencies.
 
 [SAI startup and shutdown](sai-lifetime.md) now have separate resource rollback

@@ -80,7 +80,8 @@ option. The disposable source was restored after that comparison.
 [board integration](audio-lifetime.md) owns the kernel hash. The virtual DMA
 object SHA-256 is
 `e381fc7a08535e95bec68aada9a63b9859e8e99a1d6d7b9a6d96d0b680cd4b71`.
-Private manifests bind 38 build-source inputs, 13 artifacts and twelve reports.
+Private manifests bind build-source inputs, artifacts and reports;
+[direct-link trigger verification](soc-trigger.md) records the current set.
 
 ## Unresolved trigger and termination behavior
 
@@ -88,7 +89,9 @@ The pinned [`soc_pcm_trigger`](https://github.com/nxp-imx/linux-imx/blob/30278ab
 calls codec, platform DMA, CPU SAI and board callbacks in that order, returning
 on the first error. DMA can therefore be running when SAI start fails. A DMA
 stop error can also prevent the later SAI stop callback. Returning errors from
-PCM does not make those multi-component operations transactional.
+PCM alone does not make those multi-component operations transactional.
+The [direct-link ASoC repair](soc-trigger.md) now adds rollback for the opted-in
+research link and continues stop cleanup after a component error.
 
 The outer [`pcm_native.c`](https://github.com/nxp-imx/linux-imx/blob/30278abfe0977b1d2f065271ce1ea23c0e2d1b6e/sound/core/pcm_native.c)
 has different rollback paths: a single-stream action invokes its undo callback
@@ -106,6 +109,6 @@ These trigger tests still model termination; the lifetime verifier executes it
 separately. Physical DMA completion and recovery from a wedged peripheral remain
 unqualified. STOP_STAT host-enable bits alone do not prove transfer completion.
 
-SAI trigger/IRQ handling, full ALSA rollback, reconfiguration without an explicit
-free, power management, physical clocks, playback and recording remain
+SAI trigger/IRQ handling, full ALSA linked-stream/DPCM handling, reconfiguration
+without an explicit free, power management, physical clocks, playback and recording remain
 unfinished. Nothing was installed or flashed.

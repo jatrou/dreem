@@ -93,8 +93,9 @@ from references held by callers; it does not execute runtime-PM internals.
 [SAI parameter setup](sai-parameters.md) now propagates register errors and
 tracks exact master-clock ownership. [PCM submission/control](pcm-trigger.md)
 now propagates DMA errors. [DMA retirement](pcm-lifetime.md) now checks callback
-and storage lifetime. SAI trigger/IRQ handling, physical DMA stop timing and
-ALSA rollback, reconfiguration without
+and storage lifetime. [Direct-link ASoC rollback](soc-trigger.md) now uses that
+cleanup. SAI trigger/IRQ handling, physical DMA stop timing and
+full ALSA linked-stream/DPCM handling, reconfiguration without
 an explicit free, actual PCM sample transfer and codec bias/power cleanup remain.
 [Cyclic DMA preparation](pcm-dma.md) accepts packed 20-bit samples and now has
 checked bounds and context-failure cleanup. Fixing

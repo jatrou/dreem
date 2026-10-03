@@ -67,8 +67,9 @@ The trigger path is a separate unresolved boundary: the pinned ASoC routine
 invokes the DMA platform before the CPU DAI. Propagating a CPU trigger error
 alone would not establish that previously started DMA was stopped. The later
 [PCM submission/control repair](pcm-trigger.md) checks DMA errors,
-and [DMA retirement](pcm-lifetime.md) now orders deferred cleanup. SAI trigger,
-ALSA rollback and physical DMA stop timing remain unresolved.
+and [DMA retirement](pcm-lifetime.md) now orders deferred cleanup.
+[Direct-link ASoC rollback](soc-trigger.md) now uses that cleanup. SAI trigger,
+full ALSA linked-stream/DPCM handling and physical DMA stop timing remain unresolved.
 
 ## Build and verification
 
@@ -102,8 +103,9 @@ The original codec source matcher retains all seven negative controls, and all
 At the parameter milestone, with the research audio option disabled, complete
 SAI and board objects were byte-identical to the preceding source controls at
 the same path/configuration and matched the recorded NXP baseline hashes. Disposable source was
-restored after the comparison. Current private manifests bind 38 source inputs,
-13 build artifacts and twelve reports. [Board integration](audio-lifetime.md) owns the
+restored after the comparison. Private manifests bind source inputs, artifacts
+and reports; [direct-link trigger verification](soc-trigger.md) records the
+current set. [Board integration](audio-lifetime.md) owns the
 kernel/board hashes; [clock verification](audio-clocking.md) owns the
 codec/SAI/regmap hashes.
 
