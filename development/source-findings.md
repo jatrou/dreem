@@ -44,13 +44,24 @@ function/table match, including its observed lifetime and cleanup defects.
 The source references are not yet a deployable audio integration. A separate
 [research board implementation](audio-lifetime.md) now builds into the kernel
 with repaired jack publication and cleanup, using the
-[checked identity read API](hardware-identity.md). Codec integration and physical
-qualification remain.
+[checked identity read API](hardware-identity.md). The [source-matched codec and
+board stream repairs](audio-streams.md) now build together; remaining clock and
+codec/SAI error-state defects are documented there. Physical qualification remains.
 
 The root filesystem has no matching complete source package. We still lack
 the original `nano_core`, Nerves, custom board-driver source, Buildroot board
 configuration, and any separately flashed controller source. Decompiled C is
 an analysis aid rather than recovered original source.
+
+A fresh public-source check on October 3, 2026 (America/New_York) found 16 public
+repositories in [Dreem's GitHub organization](https://github.com/Dreem-Organization).
+They include sleep research and supporting software; none identified itself as
+the complete headset firmware source. In particular,
+[dreem-standalone](https://github.com/Dreem-Organization/dreem-standalone) contains
+Docker/server bootstrap material, not the headset's `nano_core` implementation.
+This bounded search does not establish that no private or historical copy exists.
+Public component sources, binary comparisons and independent replacements remain
+the available route to adding features without the original application source.
 
 ## Kernel export verification
 

@@ -8,7 +8,8 @@ the original defects are acceptable or that physical audio is qualified.
 ## Selection and interface
 
 `build_sdma_kernel.py --wm8960-board --hardware-version` selects
-`CONFIG_DREEM_WM8960=y`. The option defaults to disabled and requires built-in
+`CONFIG_DREEM_WM8960=y`, selecting the board and source-matched codec together.
+The option defaults to disabled and requires built-in
 `SND_SOC_IMX_WM8960` and the checked hardware-identity API. When selected, this
 board driver is active at probe; unlike the experimental SDMA and bus-frequency
 paths, it does not require a second runtime switch. It replaces the NXP board
@@ -99,15 +100,18 @@ option disabled, the complete board object is byte-identical to the NXP baseline
 SHA-256 `c77b315cd7089622dbb916d55bf2c5a36f16a42c555a836f3d469423d4596c50`.
 
 The enabled kernel SHA-256 is
-`65970a09fdb799a4bf0ed5991dbd99b6e3620d68b996c0d2d1deb2c013abd773`;
+`77519b2d715c41958d856334a154ccbb3ef92d7d363afe31b567d017e174ac8d`;
 the board object SHA-256 is
-`0395f899fa91ece65aa2418eb70ff1ec7ce44a2b634c7c27b53603b9215c802a`.
+`6d03fde221020db4c99f8329ad5f594cc42e5f7aa53a835107bf5c5b783bb955`.
 Private build/verification manifests pin the exact sources, inputs and artifacts.
+This build also includes the [connected codec and stream repairs](audio-streams.md),
+whose verification is recorded separately.
 
 ## Remaining work
 
-The separately source-matched WM8960 codec changes are not yet integrated into
-this research kernel. SAI/codec clock interaction, stream startup failure state,
+The source-matched WM8960 codec is integrated, and board stream startup now
+publishes state only after clock acquisition succeeds. Codec clock selection,
+codec and CPU-DAI failure state, SAI/codec clock interaction,
 power management, independent codec/controller unbind, audible output and
 recording fidelity remain to be qualified. The old ASoC core does not make
 independent component removal safe merely because this board's own teardown

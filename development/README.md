@@ -27,7 +27,10 @@ verifier reproduces 79 cases, including startup/removal defects that a deployabl
 replacement must fix. Those matching references remain isolated. A separate
 [research board implementation](audio-lifetime.md) now integrates repaired
 startup, jack publication, stale-handle rejection and cleanup into the kernel,
-with 50 compiled ARM scenarios. Codec integration and physical tests remain.
+with 50 compiled ARM scenarios. The [matched codec and board stream repairs](audio-streams.md)
+are now integrated, with 188 connected execution scenarios and a documented
+matrix of the original clock-policy limits. Codec/SAI repairs and physical tests
+remain.
 
 The research kernel also builds a [checked hardware identity API](hardware-identity.md)
 for the optional audio board driver. Its 43 compiled ARM checks cover provider

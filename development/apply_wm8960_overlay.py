@@ -2,7 +2,7 @@
 """Build the matched board with repaired jack lifetime in a disposable tree.
 
 Uses anchors from NXP imx-wm8960.c, copyright 2015-2016 Freescale.
-The codec source remains separate; this board is not hardware-qualified.
+The board and its separately selected codec are not hardware-qualified.
 """
 import hashlib
 from pathlib import Path
@@ -24,6 +24,7 @@ def reconstruct(code):
             '#include <linux/dreem_hardware.h>\n')
     replace(reference.STATE, '')
     replace('\tu32 asrc_format;\n', '\tu32 asrc_format;\n'
+            '\tunsigned int stream_rate[2], stream_width[2];\n'
             '\tstruct snd_soc_dai_link links[3];\n'
             '\tstruct device_node *cpu_node, *codec_node, *asrc_node;\n'
             '\tstruct platform_device *cpu_device, *asrc_device;\n'
@@ -34,6 +35,9 @@ def reconstruct(code):
     start = code.index('static long jack_ioctl(')
     end = code.index('static int imx_wm8960_jack_init(', start)
     code = code[:start] + '#include "wm8960_jack.inc"\n\n' + code[end:]
+    start = code.index('static int imx_hifi_hw_params(')
+    end = code.index('static struct snd_soc_ops imx_hifi_ops', start)
+    code = code[:start] + '#include "wm8960_streams.inc"\n\n' + code[end:]
     replace('struct snd_soc_codec *codec = codec_dai->codec;\n',
             'struct snd_soc_codec *codec = codec_dai->codec;\n\tint ret;\n')
     replace('\tsnd_soc_update_bits(codec, WM8960_IFACE2, 1<<6, 1<<6);\n\n\n\treturn 0;',
@@ -54,7 +58,7 @@ def apply(source):
     (driver.parent / 'imx-wm8960-dreem.c').write_text(reconstruct(original))
     driver.write_text('#ifdef CONFIG_DREEM_WM8960\n#include "imx-wm8960-dreem.c"\n#else\n' +
                       original + '\n#endif\n')
-    for name in ('wm8960_jack.inc', 'wm8960_lifetime.inc'):
+    for name in ('wm8960_jack.inc', 'wm8960_lifetime.inc', 'wm8960_streams.inc'):
         shutil.copyfile(Path(__file__).resolve().parent / 'kernel' / name, driver.parent / name)
     with (driver.parent / 'Kconfig').open('a') as stream:
         stream.write('\nconfig DREEM_WM8960\n\tbool "Experimental Dreem WM8960 board driver"\n'
