@@ -109,18 +109,32 @@ configuration, artifact hashes, checked declarations, and import results.
 
 The emulator loads only the generated ARM ELF into synthetic memory, applies
 its relocations, reads member offsets from DWARF, and stubs selected Linux
-calls. The module is not inserted into the host kernel. Twenty cases pass:
+calls. The module is not inserted into the host kernel. Forty-eight cases pass:
 short outputs, payload/padding, a partial-copy retry, empty nonblocking and
 blocking queues, detached/cancelled reads, cancellation or a signal during a
 wait, interrupted mutex acquisition, counter copies and copy failure, unknown
-ioctl, duplicate start, stop/restart, and stalled-stop cleanup.
+ioctl, duplicate start, stop/restart, and stalled-stop cleanup, plus the
+lifecycle cases below.
 
-This exercises the actual compiled read/ioctl code and its ADC callbacks.
-It does **not** execute probe/open/removal or PM, model real scheduling and DMA
-concurrency, or prove device safety. Required remaining work includes:
+The added cases execute the compiled probe, open, close, remove, and suspend
+functions. Kernel allocation, GPIO ownership, MMIO mapping, device registration,
+device references, and runtime-PM calls are modeled. Checks cover all seven
+probe gates; allocation, each GPIO/mapping, and registration failures; PM,
+SPI-lock, GPIO, ADC-ID, and stalled-SPI initialization failures followed by a
+successful retry; and rejected opens. Successful sequences cover suspend
+refusal while open, exclusive open, removal with an outstanding descriptor,
+deferred cleanup at final close, and close/suspend/reopen with working or stalled
+SPI. Reference counts and resource ownership must balance; shutdown must disable
+DMA requests and drive the modeled power/CS pins to their inactive states.
 
-1. Validate lifecycle and cleanup paths, especially failed initialization,
-   unbind with an open descriptor, and controller runtime-PM interactions.
+These are sequential fault-injection tests of actual ARM instructions with
+synthetic kernel services. The PM model checks the target device, call flags,
+usage count, and MMIO ownership; it does not reproduce controller callbacks or
+power transitions. Real scheduling, simultaneous open/unbind/read operations,
+DMA concurrency, and device safety remain unproven. Required remaining work:
+
+1. Validate concurrent lifecycle operations and actual controller runtime-PM
+   interactions, including initialization failures and unbind while open.
 2. Re-establish verified headset access and recovery before any driver swap;
    confirm the actual kernel, hardware revision, active provider, and owners.
 3. Compare recording bytes, dropped frames, latency, CPU, and memory during a

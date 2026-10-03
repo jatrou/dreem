@@ -42,7 +42,8 @@ archived reader does not. See the same ADC document for reproduction and limits.
 An experimental [Linux ADC module](kernel-integration.md) now connects those
 functions to the stock kernel's real SDMA exports. It builds against the matched
 NXP headers, reproduces the three shared-object CRCs, and matches all 42 stock
-imports. Its compiled read/ioctl paths pass 20 emulated cases. It is not loaded
+imports. Its compiled interfaces and lifecycle paths pass 48 emulated cases,
+including resource cleanup and modeled PM reference accounting. It is not loaded
 or qualified on the headset; full SDMA source reconstruction is still pending.
 
 As of October 2, 2026, these results are verified offline. The headset was not

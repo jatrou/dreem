@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
-"""Exercise the built research module's ARM read/ioctl paths in an emulator.
+"""Exercise the built research module's ARM interfaces in an emulator.
 
 All kernel calls, MMIO, task memory, and samples are synthetic. No module is
 loaded into Linux. Requires the debug ELF produced by build_adc_module.py.
-Does not validate probe, open, removal, PM, real scheduling, or hardware.
+Models kernel resource and PM calls; does not validate real scheduling,
+controller power transitions, DMA concurrency, or physical hardware.
 """
 
 import argparse
@@ -27,6 +28,7 @@ from verify_adc_control import AcquisitionTransport, QUEUE_TRYLOCK
 from verify_adc_read import fixtures, ORDER
 
 ADC, FILE, RING, USER = 0x30000000, 0x30001000, 0x30005000, 0x30008004
+SPI_DEVICE, SPI_MASTER, PARENT, NODE = (ADC + n for n in (0x3000, 0x4000, 0x6000, 0x7000))
 STACK, TASK, STOP = 0x10000000, 0x30020000, 0x210FF000
 DATA_SYMBOLS = {"sdma_ads_user_buffer", "sdma_queue_head", "ads_data_sem",
                 "outer_cache", "jiffies", "kmalloc_caches", "param_ops_bool"}
@@ -47,7 +49,7 @@ class Module:
             raise ValueError("requires little-endian ARM32 module")
         if not self.elf.has_dwarf_info():
             raise ValueError("requires a module built with debug information")
-        self.members = {}
+        self.members, self.sizes = {}, {}
         for unit in self.elf.get_dwarf_info().iter_CUs():
             for die in unit.iter_DIEs():
                 if die.tag != "DW_TAG_structure_type" or "DW_AT_name" not in die.attributes:
@@ -59,7 +61,9 @@ class Module:
                         if location and isinstance(location.value, int):
                             members[child.attributes["DW_AT_name"].value.decode()] = location.value
                 if members:
-                    self.members[die.attributes["DW_AT_name"].value.decode()] = members
+                    name = die.attributes["DW_AT_name"].value.decode()
+                    self.members[name] = members
+                    self.sizes[name] = die.attributes["DW_AT_byte_size"].value
 
 
 class Machine:
@@ -69,6 +73,10 @@ class Machine:
         self.calls, self.copy_failure, self.lock_failure = [], False, False
         self.cancel_on_wait, self.signal_on_wait = False, False
         self.locked, self.spi_locked = False, False
+        self.failure = None
+        self.compatible, self.resource_start = True, SPI
+        self.allocated, self.registered, self.tracking = False, False, False
+        self.gpios, self.mappings, self.device_refs = set(), set(), 0
         self.uc = cpu = Uc(UC_ARCH_ARM, UC_MODE_ARM)
         cpu.ctl_set_cpu_model(UC_CPU_ARM_CORTEX_A7)
         self.symbols, self.stubs, sections = {}, {}, {}
@@ -150,8 +158,13 @@ class Machine:
         cpu.mem_write(USER - 4, GUARD + bytes([0xCC]) * 16 + GUARD)
         self.field("file", FILE, "private_data", ADC)
         self.field("file", FILE, "f_flags", 0x800 if nonblock else 0)
-        self.field("dreem_adc", ADC, "spi", ADC + 0x3000)
-        self.field("spi_device", ADC + 0x3000, "master", ADC + 0x4000)
+        self.field("dreem_adc", ADC, "spi", SPI_DEVICE)
+        self.field("spi_device", SPI_DEVICE, "master", SPI_MASTER)
+        master_device = SPI_MASTER + module.members["spi_master"]["dev"]
+        self.field("device", master_device, "parent", PARENT)
+        self.field("device", PARENT, "of_node", NODE)
+        self.field("spi_master", SPI_MASTER, "num_chipselect", 1, width=2)
+        self.power = PARENT + module.members["device"]["power"]
         for name, value in (("spi_regs", SPI), ("clock_reg", CLOCK), ("event_reg", EVENT)):
             self.field("dreem_adc", ADC, name, value)
         transport = ADC + module.members["dreem_adc"]["transport"]
@@ -193,7 +206,76 @@ class Machine:
         a, b, c = (cpu.reg_read(r) for r in (UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2))
         result = 0
         self.calls.append(name)
-        if name in ("mutex_lock", "mutex_lock_interruptible"):
+        if name == "of_machine_is_compatible":
+            compatible = b"fsl,imx6ull-femto\0"
+            require(bytes(cpu.mem_read(a, len(compatible))) == compatible, "wrong machine gate")
+            result = int(self.compatible)
+        elif name == "of_address_to_resource":
+            require(a == NODE and b == 0, "wrong controller resource lookup")
+            self.field("resource", c, "start", self.resource_start)
+            result = -22 if self.failure == name else 0
+        elif name == "kmem_cache_alloc":
+            if self.failure == name:
+                result = 0
+            else:
+                require(not self.allocated, "duplicate instance allocation")
+                self.allocated = True
+                cpu.mem_write(ADC, bytes(self.module.sizes["dreem_adc"]))
+                result = ADC
+        elif name == "kfree":
+            require(a == ADC and self.allocated, "invalid instance free")
+            require(not self.gpios and not self.mappings and not self.device_refs and not self.registered,
+                    "freed instance with outstanding resources")
+            require(self.field("dev_pm_info", self.power, "usage_count") == 0,
+                    "freed instance with outstanding PM reference")
+            self.allocated = False
+        elif name in ("get_device", "put_device"):
+            require(a == SPI_DEVICE + self.module.members["spi_device"]["dev"], "wrong device reference")
+            self.device_refs += 1 if name == "get_device" else -1
+            require(self.device_refs >= 0, "unbalanced device reference")
+            result = a
+        elif name == "__mutex_init":
+            require(a == ADC + self.module.members["dreem_adc"]["lock"], "wrong mutex initialization")
+        elif name == "gpio_request":
+            require(a in (35, 90, 34) and a not in self.gpios, "invalid GPIO claim")
+            if self.failure == (name, a):
+                result = -16
+            else:
+                self.gpios.add(a)
+        elif name == "gpio_free":
+            require(a in self.gpios, "freeing unowned GPIO")
+            self.gpios.remove(a)
+        elif name == "__arm_ioremap":
+            require((a, b) in ((SPI, 32), (CLOCK, 4), (EVENT, 4)), "invalid MMIO map")
+            require(a not in self.mappings, "duplicate MMIO map")
+            if self.failure == (name, a):
+                result = 0
+            else:
+                self.mappings.add(a)
+                result = a
+        elif name == "__arm_iounmap":
+            require(a in self.mappings, "unmapping unowned MMIO")
+            self.mappings.remove(a)
+        elif name in ("misc_register", "misc_deregister"):
+            require(a == ADC + self.module.members["dreem_adc"]["misc"], "wrong misc device")
+            if name == "misc_register":
+                require(not self.registered, "duplicate registration")
+                result = -16 if self.failure == name else 0
+                self.registered = result == 0
+            else:
+                require(self.registered, "deregistering absent device")
+                self.registered = False
+        elif name in ("__pm_runtime_resume", "__pm_runtime_suspend"):
+            require(a == PARENT, "wrong PM controller")
+            expected_flags = 4 if name == "__pm_runtime_resume" else 13
+            require(b == expected_flags, "wrong runtime PM flags")
+            usage = self.field("dev_pm_info", self.power, "usage_count")
+            usage += 1 if name == "__pm_runtime_resume" else -1
+            require(usage >= 0, "unbalanced PM reference")
+            self.field("dev_pm_info", self.power, "usage_count", usage)
+            result = -5 if self.failure == name else 0
+        elif name in ("mutex_lock", "mutex_lock_interruptible"):
+            require(a == ADC + self.module.members["dreem_adc"]["lock"], "wrong operation mutex")
             if self.lock_failure and name == "mutex_lock_interruptible":
                 result = -4
             elif self.locked:
@@ -205,9 +287,13 @@ class Machine:
                 raise ValueError("unlock without acquisition")
             self.locked = False
         elif name == "spi_bus_lock":
+            require(a == SPI_MASTER, "wrong SPI controller")
             if self.spi_locked:
                 raise ValueError("nested SPI bus lock")
-            self.spi_locked = True
+            if self.failure == name:
+                result = -16
+            else:
+                self.spi_locked = True
         elif name == "spi_bus_unlock":
             if not self.spi_locked:
                 raise ValueError("SPI unlock without acquisition")
@@ -248,12 +334,44 @@ class Machine:
     def read_mmio(self, cpu, access, address, size, value, _):
         if size != 4:
             raise ValueError("invalid MMIO read width")
+        self.check_mmio(address)
         self.put(address, self.model.io(READ, address, 0))
 
     def write_mmio(self, cpu, access, address, size, value, _):
         if size != 4:
             raise ValueError("invalid MMIO write width")
+        self.check_mmio(address)
         self.model.io(WRITE, address, value)
+
+    def check_mmio(self, address):
+        if self.tracking:
+            base = SPI if SPI <= address <= SPI + 24 else address
+            require(base in self.mappings, "access to unowned MMIO")
+            require(self.field("dev_pm_info", self.power, "usage_count") > 0,
+                    "MMIO access without a controller PM reference")
+
+    def prepare_probe(self, enabled=True):
+        self.tracking = True
+        self.uc.mem_write(ADC, bytes(self.module.sizes["dreem_adc"]))
+        self.uc.mem_write(self.symbols["sdma_hardware_confirmed"], bytes([enabled]))
+
+    def open(self, file=FILE):
+        self.field("file", file, "private_data", ADC + self.module.members["dreem_adc"]["misc"])
+        return self.call("adc_open", 0, file)
+
+    def references(self):
+        ref = ADC + self.module.members["dreem_adc"]["ref"]
+        return self.field("kref", ref, "refcount")
+
+    def resource_state(self):
+        return (self.allocated, self.registered, len(self.gpios), len(self.mappings),
+                self.device_refs, self.field("dev_pm_info", self.power, "usage_count"))
+
+    def require_power_off(self):
+        pins = {a: b for op, a, b, result in self.model.trace
+                if op in (GPIO_OUTPUT, GPIO_SET) and not result}
+        require(pins.get(35) == 0 and pins.get(90) == 1 and self.model.registers.get(EVENT) == 0,
+                "shutdown left ADC power, chip select or DMA requests active")
 
     def call(self, name, *args):
         for register, value in zip((UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3), args):
@@ -274,6 +392,167 @@ class Machine:
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def verify_lifecycle(module):
+    results = []
+    empty = (False, False, 0, 0, 0, 0)
+    bound = (True, True, 3, 3, 1, 0)
+
+    def probed():
+        machine = Machine(module)
+        machine.prepare_probe()
+        require(machine.call("adc_probe", SPI_DEVICE) == 0, "probe failed")
+        require(machine.resource_state() == bound and machine.references() == 1,
+                "probe ownership differs")
+        transport = ADC + module.members["dreem_adc"]["transport"]
+        machine.field("ads_transport", transport, "poll_limit", 32)
+        return machine
+
+    for gate in ("disabled", "machine", "chip select", "controller sharing",
+                 "resource error", "controller address", "absent ring"):
+        machine = Machine(module)
+        machine.prepare_probe(enabled=gate != "disabled")
+        if gate == "machine":
+            machine.compatible = False
+        elif gate == "chip select":
+            machine.field("spi_device", SPI_DEVICE, "chip_select", 1, width=1)
+        elif gate == "controller sharing":
+            machine.field("spi_master", SPI_MASTER, "num_chipselect", 2, width=2)
+        elif gate == "resource error":
+            machine.failure = "of_address_to_resource"
+        elif gate == "controller address":
+            machine.resource_start = SPI + 4096
+        elif gate == "absent ring":
+            machine.put(machine.symbols["sdma_ads_user_buffer"], 0)
+        expected = -517 if gate == "absent ring" else -19
+        require(machine.call("adc_probe", SPI_DEVICE) == expected, "probe gate failed: " + gate)
+        require(machine.resource_state() == empty and not machine.model.trace,
+                "rejected probe touched hardware or retained resources")
+        results.append("probe gate: " + gate)
+
+    failures = [("kmem_cache_alloc", -12), ("misc_register", -16)]
+    failures += [(("gpio_request", pin), -16) for pin in (35, 90, 34)]
+    failures += [(("__arm_ioremap", base), -12) for base in (SPI, CLOCK, EVENT)]
+    for failure, expected in failures:
+        machine = Machine(module)
+        machine.prepare_probe()
+        machine.failure = failure
+        require(machine.call("adc_probe", SPI_DEVICE) == expected, "probe failure code differs")
+        require(machine.resource_state() == empty and not machine.model.trace,
+                "failed probe leaked resources or touched hardware")
+        require(machine.field("device", SPI_DEVICE, "driver_data") == 0,
+                "failed probe published driver data")
+        results.append("probe cleanup: " + str(failure))
+
+    machine = probed()
+    misc = ADC + module.members["dreem_adc"]["misc"]
+    require(machine.field("miscdevice", misc, "mode", width=2) == 0o600,
+            "device permissions differ")
+    require(machine.call("adc_suspend", SPI_DEVICE) == 0, "closed suspend rejected")
+    require(machine.call("adc_remove", SPI_DEVICE) == 0 and machine.resource_state() == empty,
+            "closed removal leaked resources")
+    require(machine.field("device", SPI_DEVICE, "driver_data") == 0,
+            "removal left driver data")
+    results.append("closed probe/suspend/remove releases every resource")
+
+    for fault, expected in (("PM resume", -5), ("SPI lock", -16), ("power GPIO", -5),
+                            ("CS GPIO", -5), ("wrong ADC ID", -16), ("stalled SPI", -110)):
+        machine = probed()
+        if fault == "PM resume":
+            machine.failure = "__pm_runtime_resume"
+        elif fault == "SPI lock":
+            machine.failure = "spi_bus_lock"
+        elif fault in ("power GPIO", "CS GPIO"):
+            machine.model.gpio_failure = 35 if fault == "power GPIO" else 90
+        elif fault == "wrong ADC ID":
+            machine.model.ids = (0,)
+        else:
+            machine.model.stalled = True
+        require(machine.open() == expected, "open error differs: " + fault)
+        require(machine.resource_state() == bound and machine.references() == 1,
+                "failed open leaked references: " + fault)
+        for flag in ("opened", "initialized", "running", "runtime_held"):
+            require(machine.field("dreem_adc", ADC, flag, width=1) == 0,
+                    "failed open retained state: " + flag)
+        require(machine.field("file", FILE, "private_data") == misc,
+                "failed open published an instance")
+        if fault == "PM resume":
+            require(machine.calls.count("__pm_runtime_suspend") == 0,
+                    "failed resume used autosuspend instead of put_noidle")
+        if fault not in ("PM resume", "SPI lock"):
+            machine.require_power_off()
+        # Every failure must permit a subsequent ordinary open and close.
+        machine.failure, machine.model.gpio_failure = None, 0
+        machine.model.ids, machine.model.stalled = (0x90,), False
+        require(machine.open() == 0 and machine.references() == 2,
+                "retry after failed open failed: " + fault)
+        require(machine.call("adc_close", 0, FILE) == 0 and machine.resource_state() == bound,
+                "close after retry leaked resources")
+        machine.require_power_off()
+        require(machine.references() == 1, "close retained an open reference")
+        require(machine.call("adc_remove", SPI_DEVICE) == 0 and machine.resource_state() == empty,
+                "cleanup after retry leaked resources")
+        results.append("open failure, cleanup and retry: " + fault)
+
+    for gate, expected in (("interrupted mutex", -512), ("detached", -19), ("absent ring", -11)):
+        machine = probed()
+        if gate == "interrupted mutex":
+            machine.lock_failure = True
+        elif gate == "detached":
+            machine.field("dreem_adc", ADC, "detached", 1)
+        else:
+            machine.put(machine.symbols["sdma_ads_user_buffer"], 0)
+        require(machine.open() == expected, "open gate failed: " + gate)
+        require(machine.resource_state() == bound and not machine.model.trace,
+                "rejected open changed resources or hardware")
+        machine.lock_failure = False
+        require(machine.call("adc_remove", SPI_DEVICE) == 0 and machine.resource_state() == empty,
+                "cleanup after rejected open failed")
+        results.append("open gate: " + gate)
+
+    machine = probed()
+    require(machine.open() == 0 and machine.references() == 2, "ordinary open failed")
+    require(machine.field("file", FILE, "private_data") == ADC, "open did not publish instance")
+    require(machine.call("adc_suspend", SPI_DEVICE) == -16, "open suspend accepted")
+    before = machine.resource_state(), len(machine.model.trace)
+    require(machine.open(FILE + 0x100) == -16, "second open accepted")
+    require((machine.resource_state(), len(machine.model.trace)) == before and machine.references() == 2,
+            "rejected second open changed state")
+    require(machine.call("adc_ioctl", FILE, 1, 0) == 0, "start after open failed")
+    require(machine.call("adc_remove", SPI_DEVICE) == 0, "open removal failed")
+    require(machine.resource_state() == (True, False, 3, 3, 1, 0) and machine.references() == 1,
+            "open removal freed referenced resources or retained PM")
+    machine.require_power_off()
+    trace_length = len(machine.model.trace)
+    for entry, args in (("adc_read", (FILE, USER, 16, 0)),
+                        ("adc_ioctl", (FILE, 1, 0)), ("adc_ioctl", (FILE, 4, USER))):
+        require(machine.call(entry, *args) == -19, "removed descriptor accepted I/O")
+    require(len(machine.model.trace) == trace_length, "removed descriptor touched MMIO")
+    require(machine.call("adc_close", 0, FILE) == 0 and machine.resource_state() == empty,
+            "final close failed to release deferred resources")
+    require(machine.calls.count("__pm_runtime_resume") == 1 and
+            machine.calls.count("__pm_runtime_suspend") == 1, "unbalanced removal PM calls")
+    results.append("open/start/suspend refusal/duplicate open/remove/final close")
+
+    for stalled in (False, True):
+        machine = probed()
+        require(machine.open() == 0, "open for close test failed")
+        require(machine.call("adc_ioctl", FILE, 1, 0) == 0, "start for close test failed")
+        machine.model.stalled = stalled
+        require(machine.call("adc_close", 0, FILE) == 0 and machine.resource_state() == bound,
+                "close while running leaked resources")
+        machine.require_power_off()
+        require(machine.references() == 1 and machine.call("adc_suspend", SPI_DEVICE) == 0,
+                "closed device retained an open reference or blocked suspend")
+        machine.model.stalled = False
+        require(machine.open() == 0 and machine.references() == 2, "reopen after close failed")
+        require(machine.call("adc_close", 0, FILE) == 0 and machine.resource_state() == bound,
+                "second close leaked resources")
+        require(machine.call("adc_remove", SPI_DEVICE) == 0 and machine.resource_state() == empty,
+                "cleanup after reopen leaked resources")
+        results.append("running close/suspend/reopen" + (" with stalled SPI" if stalled else ""))
+    return results
 
 
 def verify(path):
@@ -348,10 +627,11 @@ def verify(path):
     require(machine.model.trace[-3:] == [[WRITE, EVENT, 0, 0], [GPIO_SET, 35, 0, 0], [GPIO_SET, 90, 1, 0]],
             "stalled stop did not shut down")
     results.append("stalled stop shuts down and invalidates initialization")
+    results.extend(verify_lifecycle(module))
     return {"module_sha256": hashlib.sha256(module.binary).hexdigest(),
             "passed_cases": len(results), "cases": results,
             "runtime_qualified": False,
-            "limits": "Emulated read/ioctl logic only; probe/open/removal/PM, scheduling and physical DMA remain unverified"}
+            "limits": "Kernel resource/PM calls are models; concurrent scheduling, controller power transitions and physical DMA remain unverified"}
 
 
 def main():
