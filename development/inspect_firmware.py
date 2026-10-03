@@ -24,7 +24,8 @@ INNER = {"usr/bin/nano_core", "usr/lib/os-release", "etc/firmware/ads_sdma.bin",
          "etc/init.d/S99_load_sdma_firmware", "usr/bin/simple_acquisition_ads1296",
          "etc/imx6ul-nano1.dtb", "etc/imx6ul-nano2.dtb",
          "etc/init.d/S99_dreem", "etc/init.d/S99_watchdog",
-         "etc/init.d/S15watchdog", "usr/bin/mpu_watchdog.sh"}
+         "etc/init.d/S15watchdog", "usr/bin/mpu_watchdog.sh",
+         "etc/inittab", "etc/fstab"}
 
 
 def digest(data):

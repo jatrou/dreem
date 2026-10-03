@@ -76,6 +76,10 @@ Requested watchdog timing is not a physical timing measurement.
 
 These are archived stock files, not a fresh inspection of the modified headset's
 live supervision. No service-stop procedure is qualified by this review.
+The new [startup inventory](startup-inventory.md) records process identity and
+existing descriptor observations without opening devices or signaling their
+owners. It also documents the reviewed stock init/mount behavior; a successful
+inventory still does not establish an ownership barrier.
 
 ## Consequences for feature integration
 

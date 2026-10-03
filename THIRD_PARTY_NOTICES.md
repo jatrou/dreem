@@ -70,6 +70,17 @@ runtime libraries used by builds retain their own terms; no copied firmware
 instructions, runtime binaries or generated patched core are bundled. See
 [radio coordination and test boundaries](development/bluetooth-radio-lease.md).
 
+## Read-only startup inventory
+
+`development/startup_inventory.c`, `development/build_startup_inventory.py`,
+`tests/startup_inventory_hook.c` and `tests/test_startup_inventory.py` are newly
+authored Apache-2.0 source, copyright 2026 Dreem research contributors. They use
+documented Linux process interfaces and do not contain vendor instructions,
+init-script source, firmware or personal recordings. Test hooks are excluded
+from deployment builds. Generated static executables retain the obligations
+of their linked toolchain runtimes and are not bundled. See
+[scope and qualification](development/startup-inventory.md).
+
 ## Existing file streamer repair
 
 `development/repair_streamer_poll.py`, `tests/streamer_poll_harness.c` and

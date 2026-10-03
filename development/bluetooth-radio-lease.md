@@ -178,6 +178,8 @@ DREEM_BT_RADIO_CORE=/private/inspection/nano_core \
 
 The radio verifier's file metadata, clock, semaphore, controller responses and
 nested managers are modeled. It is not a full core scheduler or a physical radio
-test. The next steps are startup/activation ownership, a native rollback path,
+test. A [read-only startup inventory](startup-inventory.md) now collects bounded
+process/descriptor observations for this work. The next steps remain
+startup/activation ownership, a native rollback path,
 and real recording, sensor, latency and battery qualification. Peer classification
 and a valid local lease alone do not complete those checks.

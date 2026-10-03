@@ -37,7 +37,10 @@ change for a cooperative sensor integration. A
 address filter at two original call sites and passes connected ARM callback
 tests. The optional [radio-lease integration](bluetooth-radio-lease.md) now links
 capture lifetime to bounded controller-power deferral and companion-setting
-restoration. Native startup ownership and qualification remain open.
+restoration. A [read-only startup inventory](startup-inventory.md) now identifies
+process and descriptor observations needed before a native handoff, including
+incomplete views and observed identity changes. Native startup ownership,
+activation, rollback and qualification remain open.
 
 The [WM8960 audio codec](audio-findings.md) now has a source-match recipe:
 four groups of changes to public NXP source reproduce all 21 emitted functions,
