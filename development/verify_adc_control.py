@@ -185,7 +185,7 @@ def verify(path):
         subprocess.run(["cc", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
                         "-shared", "-fPIC", str(source), "-o", str(shared)], check=True)
         subprocess.run(["arm-linux-gnueabihf-gcc", "-std=c11", "-O2", "-Wall", "-Wextra",
-                        "-Werror", "-marm", "-mcpu=cortex-a7", "-ffreestanding", "-nostdlib",
+                        "-Werror", "-marm", "-mcpu=cortex-a7", "-mgeneral-regs-only", "-ffreestanding", "-nostdlib",
                         "-static", "-no-pie", "-Wl,-Ttext=0x20000000,-e,ads129x_sdma_start",
                         str(source), "-o", str(arm_path)], check=True)
         library, arm_binary = ctypes.CDLL(str(shared)), arm_path.read_bytes()

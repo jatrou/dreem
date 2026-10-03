@@ -237,3 +237,57 @@ int ads129x_sdma_release(const struct ads_transport *t)
     io(t, ADS_GPIO_SET, CS_GPIO, 1);
     return 0;
 }
+
+static void next_frame(struct ads_sdma_state *state)
+{
+    state->read_offset = (state->read_offset + 16) & (ADS_SDMA_RING_BYTES - 1);
+}
+
+static int placeholder(const uint8_t *frame)
+{
+    return frame[0] == 0x42 && frame[1] == 0x42 && frame[2] == 0x42;
+}
+
+int ads129x_sdma_read_frame(const struct ads_transport *t,
+                           struct ads_sdma_state *state,
+                           uint8_t *output, unsigned output_size)
+{
+    static const uint8_t order[12] = {7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12};
+    if (!valid_transport(t) || !state || !state->ring || !output || output_size < 16 ||
+        state->read_offset >= ADS_SDMA_RING_BYTES || (state->read_offset & 15))
+        return -22;
+    unsigned attempt;
+    for (attempt = 0; attempt < 5; ++attempt)
+        if (!io(t, ADS_QUEUE_WAIT, 0, 0))
+            break;
+    if (attempt == 5)
+        return -3;
+    const uint8_t *frame = state->ring + state->read_offset;
+    if (placeholder(frame)) {
+        unsigned remaining = 66;
+        do {
+            next_frame(state);
+            if (!--remaining) {
+                ++state->errors;
+                return -1;
+            }
+            frame = state->ring + state->read_offset;
+        } while (placeholder(frame));
+    }
+    if ((frame[0] & 0xf0) || frame[1] || frame[2] != 0xc0) {
+        next_frame(state);
+        ++state->errors;
+        return -2;
+    }
+    uint8_t record[16] = {0};
+    for (unsigned i = 0; i < sizeof(order); ++i)
+        record[i] = frame[order[i]];
+    uint32_t head = io(t, ADS_QUEUE_HEAD, 0, 0);
+    if (head >= ADS_SDMA_RING_BYTES / 16)
+        return -22;
+    record[12] = (head + 64 - state->read_offset / 16) & 63;
+    for (unsigned i = 0; i < sizeof(record); ++i)
+        output[i] = record[i];
+    next_frame(state);
+    return 16;
+}

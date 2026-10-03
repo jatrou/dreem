@@ -29,7 +29,8 @@ bundled here. Their use does not relicense generated vendor code.
 ## ADC driver reconstruction
 
 `development/ads129x_init.c`, `development/ads129x_init.h`,
-`development/verify_adc_init.py`, and `development/verify_adc_control.py`
+`development/verify_adc_init.py`, `development/verify_adc_control.py`, and
+`development/verify_adc_read.py`
 are GPL-2.0-only, separately from the root
 Apache license. They are independently written reconstruction and verification
 code based on observed Linux firmware behavior and published ADC register

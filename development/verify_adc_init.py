@@ -257,7 +257,7 @@ def verify(path):
                         "-shared", "-fPIC", str(source), "-o", str(shared)], check=True)
         arm_path = Path(folder) / "adc.arm.elf"
         subprocess.run(["arm-linux-gnueabihf-gcc", "-std=c11", "-O2", "-Wall", "-Wextra",
-                        "-Werror", "-marm", "-mcpu=cortex-a7", "-ffreestanding", "-nostdlib",
+                        "-Werror", "-marm", "-mcpu=cortex-a7", "-mgeneral-regs-only", "-ffreestanding", "-nostdlib",
                         "-static", "-no-pie", "-Wl,-Ttext=0x20000000,-e,ads129x_sdma_initialize",
                         str(source), "-o", str(arm_path)], check=True)
         arm_binary = arm_path.read_bytes()

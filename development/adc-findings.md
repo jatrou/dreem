@@ -1,14 +1,15 @@
-# ADC initialization and acquisition control
+# ADC acquisition reconstruction
 
 Verified offline on October 2, 2026 against the stock kernel identified in
 [source findings](source-findings.md). This reconstructs the initialization
-used by the SDMA acquisition path, plus its start, stop, and release sequences.
-It is not a complete acquisition driver.
+used by the SDMA acquisition path, its start/stop/release sequences, and its
+ring-to-record conversion. It is not a complete Linux acquisition driver.
 
 ## Source and transport boundary
 
 `ads129x_init.c` contains independently written C for the power, SPI-command,
-identification, register setup, and acquisition-control sequences. It compiles for the host and
+identification, register setup, acquisition control, and sample extraction.
+It compiles for the host and
 Cortex-A7. A callback supplies ordered MMIO, GPIO, and delay operations; the
 verification tools supply synthetic operations only. There is no hardware
 backend, device-node access, or installation step. The start function can
@@ -16,7 +17,7 @@ operate only through a caller-supplied transport; these checks use emulation.
 
 Integration into a replacement kernel still needs Linux MMIO barriers and
 resource ownership, the ADC character-device interface, SDMA channel/script
-setup, sample delivery, suspend/resume, and hardware testing. It must
+setup, Linux sample delivery, suspend/resume, and hardware testing. It must
 not run alongside the existing ADC owner. An upstream kernel with this one
 component would still be incomplete.
 
@@ -141,3 +142,61 @@ This comparison does not model concurrent interrupts, DMA writes during ring
 reset, cache coherency, actual semaphore scheduling, or physical timing. The
 callback transport must provide Linux ordering and exclusive resource ownership
 when a real driver is implemented. No reconstructed driver is installed.
+
+## Ring-to-record extraction
+
+`ads129x_sdma_read_frame` implements the sample extraction behind the SDMA
+character-device read. It consumes a queue notification, validates the frame
+status, reorders 12 sample bytes, computes the queue-depth byte, and advances
+the reader. The 16-byte output can then use the independently verified sample
+decoder. The transport supplies `ADS_QUEUE_WAIT`; its blocking/timeout policy
+must be implemented by the eventual Linux adapter. Five interrupted waits
+return the original status `-3`.
+
+The ring uses `0x42` placeholders after reset. The reader skips these with
+the observed 66-advance bound, returning `-1` and counting an error if none
+is replaced. Invalid frame status returns `-2` and counts an error. These are
+the observed driver return values, not newly assigned Linux errno meanings.
+
+Reproduce the read comparison:
+
+```sh
+/private/work/venv/bin/python development/verify_adc_read.py \
+  /private/work/inspection/kernel.elf
+```
+
+Host and Cortex-A7 builds match the original sample payload, queue metadata,
+return values, queue operations, and final ring/reader state across **270
+synthetic cases**. They cover every reader slot with depths 0, 1, 31, and 63;
+placeholder skips across wrap; invalid status; an all-placeholder ring; and
+interrupted waits. The tested byte permutation is
+`7,6,5,4,11,10,9,8,15,14,13,12`.
+
+Combined sample-read trace SHA-256:
+`8d8b51ffacbc3ef95b2ad75be180a4bac33c04104c81af7bdc3b037b94455c74`.
+
+The reconstruction deliberately differs at these boundaries:
+
+- **Trailing bytes:** the original copies 16 stack bytes after initializing
+  only the first 13. Changing three synthetic prior-stack bytes changes the
+  returned padding while the payload remains identical. The reconstruction
+  always zeros output bytes 13–15. This reproduces a disclosure mechanism in
+  the archived routine; it does not establish what any live recording exposed.
+- **Short output:** the original copies 16 bytes for requested lengths 0, 1,
+  12, and 15. The reconstruction rejects these before consuming a notification
+  or changing output. Guard bytes remain intact on both reconstruction targets.
+- **Status after placeholders:** the original accepts the first non-placeholder
+  without rechecking its status. The reconstruction validates it and rejects
+  malformed input with `-2`.
+- **Invalid state:** misaligned/out-of-range reader offsets and out-of-range
+  producer slots are rejected. No output is returned from invalid state.
+
+ARM builds use `-mgeneral-regs-only`: the default Cortex-A7 optimization used
+NEON for a buffer copy, which is unsuitable for this kernel-oriented component
+without special floating-point context handling. The verified code uses general
+registers and runs with emulated floating-point access disabled.
+
+No actual userspace pointer is copied by this portable component. A Linux
+`read` wrapper still must enforce caller length, `copy_to_user` semantics,
+exclusive access, DMA visibility, and correct wait/interrupt behavior. Concurrent
+DMA writes and physical acquisition fidelity remain unverified.

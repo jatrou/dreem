@@ -166,6 +166,9 @@ nominal microvolts at the ADC input; physical calibration remains unverified.
 That component also reconstructs start, stop, and release, with 72 modeled
 cases matching the stock control routines and explicit bounded-timeout cleanup.
 The remaining acquisition-driver integration is listed in the same document.
+Its ring reader now also matches 270 synthetic payload/state cases, with
+deliberate fixes for uninitialized padding, short buffers, and status validation.
+These fixes are in reconstructed source only, not the installed kernel.
 
 ## Existing sensor interfaces
 
