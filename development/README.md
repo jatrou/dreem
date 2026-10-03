@@ -87,6 +87,13 @@ including address failures and partial reads that expose a reproduced defect
 in the original helpers. No live bus access or driver deployment is part of
 those checks; exclusive ownership and hardware qualification remain open.
 
+The [optical FIFO reader](optical-fifo.md) now adds bounded batch draining,
+pointer checks and quarantine after uncertain transfers. Original ARM loop
+replay confirms the every-fifth-EEG wake and one optical row per wake. Host/ARM
+tests demonstrate how batch draining prevents backlog in a synthetic 100 Hz
+producer/50 Hz poll schedule, while retaining explicit uncertainty about
+unobserved loss. Sensor lifecycle and physical integration remain open.
+
 The [recording-event monitor](algo-findings.md) decodes `algo.data`, including
 motion/optical health and recovery markers. Its host and ARM builds match all
 28 recognized event formats in the original writer/replay reader. It preserves
@@ -347,7 +354,7 @@ sh development/build.sh
   tests.test_compare_exports tests.test_sdma_disassemble \
   tests.test_eeg_samples tests.test_eeg_quality tests.test_motion_quality \
   tests.test_algo_health tests.test_session_motion tests.test_feature_trial \
-  tests.test_sensor_i2c -v
+  tests.test_sensor_i2c tests.test_optical_fifo -v
 ```
 
 The suite covers malformed/truncated input, archive link and duplicate rejection,

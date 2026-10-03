@@ -125,11 +125,14 @@ also specifies part ID `0x15`. That check cannot prove a green LED is present.
 Physical identity must be established before planning a third optical channel.
 
 The recording processor consumes an optical row on the same every-fifth-EEG
-iteration as motion. The producer has a separate acquisition/queue path, and
-nonrecording mode aims for a 20 ms loop. The relationship between the programmed
-100 Hz conversion, FIFO occupancy and those consumers requires further timing
-and overflow analysis. Do not equate a file-row index with an exact physical
-sample timestamp or infer a clinical measurement from these counts.
+iteration as motion. The [optical cadence and FIFO reconstruction](optical-fifo.md)
+now executes the original wake/producer blocks: the EEG reader posts an optical
+wake every five iterations, and the producer reads one six-byte row per wake.
+A bounded source reader drains the visible FIFO batch and quarantines uncertain
+framing after faults. A model demonstrates backlog under the original single-row
+policy; physical timing and actual recording loss remain unmeasured. Do not
+equate a file-row index with an exact physical sample timestamp or infer a
+clinical measurement from these counts.
 
 ## Reproduce verification
 
@@ -161,7 +164,8 @@ modeled. Fixture-result SHA-256:
 `1c013f3f3dd34500bde6029ed6107ea3d420dc040e0ebc4eda139eab65ab2f7d`.
 
 No full vendor process, live adapter, physical sensor or complete recording
-pipeline is executed by these checks. Sensor lifecycle, FIFO recovery, producer
-timing, hardware identity, power/pad routing and device qualification remain
-open. The independent transport does not patch the installed `nano_core`, and
-the source has not been deployed. Firmware/decompiler output remains private.
+pipeline is executed by these checks. Sensor lifecycle, physical FIFO recovery,
+measured producer timing, hardware identity, power/pad routing and device
+qualification remain open. The independent transport does not patch the
+installed `nano_core`, and the source has not been deployed. Firmware/decompiler
+output remains private.

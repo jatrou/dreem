@@ -253,8 +253,11 @@ provides checked register I/O and an optical decoder matching the original ARM
 conversion. Executing the original bus helpers reproduces an error-cancellation
 defect that can return success after failed address selection and a short
 transfer. The new transport checks each operation, uses combined reads and
-withholds partial output. Sensor ownership, FIFO recovery and physical
-qualification remain open; the existing manager has not been patched.
+withholds partial output. The [optical cadence and FIFO reader](optical-fifo.md)
+now replay the original every-fifth-EEG wake/one-row producer relationship and
+provide bounded batch draining with pointer validation and fault quarantine.
+Sensor ownership, hardware FIFO recovery and physical qualification remain
+open; the existing manager has not been patched.
 
 ST supplies a [platform-independent LIS2HH12 driver with source](https://github.com/STMicroelectronics/lis2hh12-pid)
 under BSD-3-Clause. Its [datasheet](https://www.st.com/resource/en/datasheet/lis2hh12.pdf)

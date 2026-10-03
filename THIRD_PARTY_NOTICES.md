@@ -76,6 +76,14 @@ no vendor instructions or decompiler output are bundled. See
 [sensor transport findings](development/sensor-transport.md) for the sources,
 reproduced original failure behavior and qualification limits.
 
+`development/optical_fifo.c`, `development/optical_fifo.h`,
+`development/verify_optical_cadence.py`, `tests/optical_fifo_harness.c`, and
+`tests/test_optical_fifo.py` also use Apache-2.0. They independently implement
+a bounded FIFO reader, synthetic chip model and selected-code cadence verifier.
+No original instruction bytes or vendor decompiler output are distributed.
+See [optical FIFO findings](development/optical-fifo.md) for component references
+and the distinction between modeled loss and physical acquisition evidence.
+
 ## Feature-trial tooling
 
 `development/trial_exec.c`, `development/build_feature_trial.py`,
