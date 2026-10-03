@@ -27,7 +27,12 @@ including the GATT client/server and event loop. An independent
 dependency set from public source, with checked long reads, subscriptions,
 connection deadlines and private output. Thirteen test groups pass on host,
 ARM emulation and host sanitizers. An additional sensor operating alongside
-the physical recorder remains unqualified.
+the physical recorder remains unqualified. The
+[original Bluetooth ownership and recording policy](bluetooth-policy.md) now
+explains two integration constraints: a single peer slot with automatic removal
+of another peer, and recording-related controller power changes. The recovered
+event switch and 78 original-ARM cases identify the owner paths that need to
+change for a cooperative sensor integration.
 
 The [WM8960 audio codec](audio-findings.md) now has a source-match recipe:
 four groups of changes to public NXP source reproduce all 21 emitted functions,

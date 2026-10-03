@@ -38,6 +38,14 @@ Static runtime dependencies also retain their own terms. No compiled executable,
 vendor library object, personal sensor capture or Dreem firmware is added by
 this work. See [build and qualification scope](development/bluetooth-capture.md).
 
+`development/verify_bluetooth_policy.py` and
+`development/ghidra/ExportBluetoothPolicy.java` are new Apache-2.0 analysis tools,
+copyright 2026 Dreem research contributors. They require the exact privately
+supplied core and emit analysis or synthetic results. They do not bundle its
+instructions, decompilation, private peer addresses or firmware image. Ghidra analysis
+overrides do not grant rights to publish the generated vendor decompilation.
+See [Bluetooth ownership findings](development/bluetooth-policy.md).
+
 ## Existing file streamer repair
 
 `development/repair_streamer_poll.py`, `tests/streamer_poll_harness.c` and

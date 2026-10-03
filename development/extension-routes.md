@@ -124,6 +124,9 @@ compiler. The route verifier additionally requires Unicorn.
 
 The [independent GATT capture client](bluetooth-capture.md) now builds its complete
 dependency set from public source and passes host/ARM packet-exchange tests.
+The [original core's Bluetooth policy](bluetooth-policy.md) now identifies its
+single-peer removal path and recording-related controller power transitions.
+Those ownership rules need explicit integration changes for an additional sensor.
 Device-side checks of controller capabilities, existing connection ownership,
 recording fidelity and resource use remain. The existing UART2 Bluetooth link
 should remain under its current owner. Wired expansion

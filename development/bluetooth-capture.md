@@ -96,6 +96,10 @@ This is an interface example, not evidence that a particular headset/controller
 supports concurrent sensor capture. UART2 remains owned by the existing
 Bluetooth transport. A native integration must first establish controller
 capabilities, connection ownership and coexistence with the recorder.
+The [original core policy](bluetooth-policy.md) now shows specific obstacles:
+its D-Bus callbacks track one peer and attempt removal of another, while several
+recording-related events power the controller off. The capture client does not
+change those policies and is not yet a cooperative on-device integration.
 
 Discovery requires exactly one matching characteristic across matching services.
 Reads require the read property. Subscription accepts notification or indication
