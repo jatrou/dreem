@@ -235,7 +235,7 @@ Identified from calls in the stock core, with corroborating component documents:
 | Component | Linux bus / address | Binary evidence |
 | --- | --- | --- |
 | LIS2HH12 accelerometer | `/dev/i2c-3`, `0x1e` | `0x0008fc20`/`0x0008fd94` check WHO_AM_I register `0x0f` for `0x41` |
-| MAX30101 optical sensor | `/dev/i2c-3`, `0x57` | `0x00090758` opens the bus and reads part ID register `0xff` |
+| Optical sensor labeled MAX30101 by firmware | `/dev/i2c-3`, `0x57` | `0x00090758` checks part ID `0x15`; this value is also used by MAX30102 |
 | CAP1298 touch/slide controller | `/dev/i2c-3`, `0x28` | `0x00097bd4` checks product register `0xfd` for `0x71`; associated setup error names CAP1298 |
 
 The stock binary has branches for multiple hardware variants. These findings
@@ -247,6 +247,14 @@ The [motion reconstruction](motion-findings.md) now documents the LIS2HH12
 count-to-recorder conversion, native 12-byte float file rows, nominal 50 Hz
 cadence and zero-placeholder ambiguity. Its independent C decoder matches the
 original ARM conversion; the new file-based motion monitor does not open this bus.
+
+The [sensor transport and optical reconstruction](sensor-transport.md) now
+provides checked register I/O and an optical decoder matching the original ARM
+conversion. Executing the original bus helpers reproduces an error-cancellation
+defect that can return success after failed address selection and a short
+transfer. The new transport checks each operation, uses combined reads and
+withholds partial output. Sensor ownership, FIFO recovery and physical
+qualification remain open; the existing manager has not been patched.
 
 ST supplies a [platform-independent LIS2HH12 driver with source](https://github.com/STMicroelectronics/lis2hh12-pid)
 under BSD-3-Clause. Its [datasheet](https://www.st.com/resource/en/datasheet/lis2hh12.pdf)

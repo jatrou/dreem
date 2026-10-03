@@ -63,6 +63,19 @@ load only selected code from the privately supplied executable; no original
 instructions, decompiler output or personal recordings are bundled. See
 [session motion findings](development/session-motion.md).
 
+## Sensor transport and optical decoding
+
+`development/sensor_i2c.c`, `development/sensor_i2c.h`,
+`development/optical_samples.c`, `development/optical_samples.h`,
+`development/verify_optical_transport.py`, `tests/sensor_i2c_harness.c`, and
+`tests/test_sensor_i2c.py` use Apache-2.0. The register transport and sample
+decoder are independently written from Linux's public userspace interface,
+component register documentation, and observed firmware behavior. The verifier
+loads selected original instructions only from a privately supplied executable;
+no vendor instructions or decompiler output are bundled. See
+[sensor transport findings](development/sensor-transport.md) for the sources,
+reproduced original failure behavior and qualification limits.
+
 ## Feature-trial tooling
 
 `development/trial_exec.c`, `development/build_feature_trial.py`,

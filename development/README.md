@@ -80,6 +80,13 @@ native `accelerometer.data` files and reports vector/axis variation without
 accessing the sensor bus. Six feature tests pass on host and ARM emulation;
 device-side timing and recording-fidelity checks remain.
 
+The [optical decoder and checked I2C transport](sensor-transport.md) add an
+editable basis for sensor integrations. The decoder matches 4,193 original ARM
+cases on host and ARM builds. The transport passes 137 scenarios per build,
+including address failures and partial reads that expose a reproduced defect
+in the original helpers. No live bus access or driver deployment is part of
+those checks; exclusive ownership and hardware qualification remain open.
+
 The [recording-event monitor](algo-findings.md) decodes `algo.data`, including
 motion/optical health and recovery markers. Its host and ARM builds match all
 28 recognized event formats in the original writer/replay reader. It preserves
@@ -339,7 +346,8 @@ sh development/build.sh
   tests.test_firmware_development tests.test_kernel_exports \
   tests.test_compare_exports tests.test_sdma_disassemble \
   tests.test_eeg_samples tests.test_eeg_quality tests.test_motion_quality \
-  tests.test_algo_health tests.test_session_motion tests.test_feature_trial -v
+  tests.test_algo_health tests.test_session_motion tests.test_feature_trial \
+  tests.test_sensor_i2c -v
 ```
 
 The suite covers malformed/truncated input, archive link and duplicate rejection,

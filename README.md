@@ -7,6 +7,8 @@
 > [health-aware session summaries](development/session-motion.md).
 > A [synthetic ARM trial bundle](development/feature-trial.md) prepares these
 > programs for device execution and resource checks; native testing remains open.
+> [Checked sensor I/O and optical decoding](development/sensor-transport.md)
+> provide source components for further hardware integrations.
 > Kernel config and symbols are recovered; the full
 > vendor application source is still unavailable. Existing operational records
 > document later root recovery, while this branch's new tests are offline.
