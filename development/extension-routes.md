@@ -128,7 +128,9 @@ The [original core's Bluetooth policy](bluetooth-policy.md) now identifies its
 single-peer removal path and recording-related controller power transitions.
 The [private peer overlay](bluetooth-peer-overlay.md) implements the first of
 those integration changes by separating designated sensor addresses at the
-original connection call sites. Controller power coordination remains open.
+original connection call sites. Its optional
+[radio-lease integration](bluetooth-radio-lease.md) now coordinates capture
+lifetime with normal recording pauses; native startup and qualification remain open.
 Device-side checks of controller capabilities, existing connection ownership,
 recording fidelity and resource use remain. The existing UART2 Bluetooth link
 should remain under its current owner. Wired expansion

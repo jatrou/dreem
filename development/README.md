@@ -25,7 +25,7 @@ reproduces the surviving allocated sections of 20 saved library objects,
 including the GATT client/server and event loop. An independent
 [Bluetooth capture client](bluetooth-capture.md) now builds its complete
 dependency set from public source, with checked long reads, subscriptions,
-connection deadlines and private output. Thirteen test groups pass on host,
+connection deadlines and private output. Seventeen test groups pass on host,
 ARM emulation and host sanitizers. An additional sensor operating alongside
 the physical recorder remains unqualified. The
 [original Bluetooth ownership and recording policy](bluetooth-policy.md) now
@@ -35,7 +35,9 @@ event switch and 78 original-ARM cases identify the owner paths that need to
 change for a cooperative sensor integration. A
 [private peer-separation overlay](bluetooth-peer-overlay.md) now implements the
 address filter at two original call sites and passes connected ARM callback
-tests. Controller power coordination and native qualification remain open.
+tests. The optional [radio-lease integration](bluetooth-radio-lease.md) now links
+capture lifetime to bounded controller-power deferral and companion-setting
+restoration. Native startup ownership and qualification remain open.
 
 The [WM8960 audio codec](audio-findings.md) now has a source-match recipe:
 four groups of changes to public NXP source reproduce all 21 emitted functions,

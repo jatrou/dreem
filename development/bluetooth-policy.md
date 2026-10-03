@@ -143,8 +143,10 @@ uses a raw ATT socket or BlueZ D-Bus.
 The [peer-separation overlay](bluetooth-peer-overlay.md) now implements the
 classification at the two original connection call sites, with original-ARM
 callback checks and separate executable-loader fixtures. It creates a private
-candidate without installing or starting it. Controller power coordination
-remains, followed by qualification of real controller capabilities, recording
+candidate without installing or starting it. The optional
+[radio-lease profile](bluetooth-radio-lease.md) now coordinates the two normal
+recording pauses with a bounded capture lifetime. Native startup ownership and
+qualification of real controller capabilities, recording
 fidelity and power use. An external radio or wired
 sensor is another hardware route, but would require physical interface and power
 verification. No vendor executable is bundled in the repository, and no on-device

@@ -7,7 +7,8 @@ BlueZ 5.52 source plus the small checked patch in this directory. It links no
 extracted vendor objects and does not require Dreem's original application source.
 
 On October 3, 2026 (America/New_York), the host, ARM-emulated and host sanitizer
-builds passed 13 test groups. All sensor traffic in those tests was synthetic.
+builds passed 17 test groups, including optional radio-lease lifetime checks.
+All sensor traffic in those tests was synthetic.
 This client has not been deployed or physically qualified on the headset.
 
 ## Build from public source
@@ -102,7 +103,13 @@ recording-related events power the controller off. The capture client does not
 change those policies and is not yet a cooperative on-device integration.
 The separate [private peer overlay](bluetooth-peer-overlay.md) now implements
 sensor-address separation in the original callbacks. Recording-related radio
-power changes still require coordination before a continuous sensor session.
+power changes can now use the optional [radio-lease integration](bluetooth-radio-lease.md):
+add `--radio-lease /run/dreem-extension-radio` to a direct-connection invocation,
+with the same sensor configured in a matching private core overlay. Capture
+renews a short private lease every second and releases it during cleanup; a
+renewal failure stops acquisition. The controller must already be enabled.
+This is a request, not confirmation that an installed core accepted it, and the
+combined path remains unqualified on the headset.
 
 Discovery requires exactly one matching characteristic across matching services.
 Reads require the read property. Subscription accepts notification or indication
@@ -157,11 +164,18 @@ connection harness. With no executable configured, the suite explicitly skips;
 that is not a passing qualification.
 
 The independent Python peer exchanges real ATT packets with the source-built
-client over a UNIX packet socket. The 13 groups cover exact 0/2/44/512-byte reads,
+client over a UNIX packet socket. The original 13 groups cover exact 0/2/44/512-byte reads,
 notifications and indications, absent/ambiguous characteristics, properties,
 authentication and subscription errors, oversized reads, Service Changed,
 short notifications, deadlines, interruption, disconnect/malformed discovery,
 existing-output preservation and invalid arguments.
+
+Four additional groups cover radio-lease renewal, cleanup after connection
+failure or SIGTERM, renewal failure, and a SIGKILLed owner. The full 17-group
+qualification runs 114 synthetic captures across the three builds. With the
+private core and overlay paths configured as described in
+[radio coordination](bluetooth-radio-lease.md), nine lease flows also feed the
+actual published records into the compiled ARM reader and original event paths.
 
 The connection group links a separate test-only wrapper around socket calls. It
 checks local/peer addresses, address type, CID and requested security; immediate

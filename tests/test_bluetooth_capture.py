@@ -13,10 +13,12 @@ import socket
 import stat
 import struct
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 import unittest
+import uuid
 
 
 def le16(value):
@@ -137,6 +139,9 @@ class BluetoothCaptureTests(unittest.TestCase):
         cls.builds = []
         cls.connect_builds = []
         cls.work = tempfile.TemporaryDirectory(prefix='dreem-bt-connect-test-')
+        cls.radio_settings = (os.environ.get('DREEM_BT_RADIO_CORE'), os.environ.get('DREEM_BT_RADIO_OVERLAY'))
+        if any(cls.radio_settings) and not all(cls.radio_settings):
+            raise RuntimeError('set both radio core and overlay paths')
         for kind in ('HOST', 'ARM', 'ASAN'):
             binary = os.environ.get('DREEM_BT_CAPTURE_'+kind)
             if binary:
@@ -166,7 +171,7 @@ class BluetoothCaptureTests(unittest.TestCase):
         cls.work.cleanup()
 
     def capture(self, *, sensor=None, mode='read', maximum=1, duration=1000,
-                extra=(), interrupt=False, existing=False, connect_case=None):
+                extra=(), interrupt=False, existing=False, connect_case=None, lease_case=None):
         results = []
         for name, command in (self.connect_builds if connect_case else self.builds):
             with self.subTest(build=name), tempfile.TemporaryDirectory() as directory:
@@ -180,6 +185,20 @@ class BluetoothCaptureTests(unittest.TestCase):
                         '--duration-ms', str(duration), '--output', str(output), *extra]
                 env = os.environ.copy()
                 trace = Path(directory)/'connect.trace'
+                lease_dir = Path(directory)/'radio-lease'
+                radio_model = None
+                if lease_case:
+                    self.assertIsNotNone(connect_case, 'lease tests use the modeled direct connection path')
+                    args += ['--radio-lease', str(lease_dir)]
+                    if all(self.radio_settings):
+                        sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'development'))
+                        try:
+                            from verify_bluetooth_radio_overlay import RadioPolicy
+                        finally:
+                            sys.path.pop(0)
+                        radio_model = RadioPolicy(*(Path(p) for p in self.radio_settings))
+                        radio_model.prepare()
+                        radio_model.boot_text = Path('/proc/sys/kernel/random/boot_id').read_bytes()
                 if connect_case:
                     args = args[2:]+['--local', '02:00:00:00:00:01', '--peer', '02:00:00:00:00:02',
                                     '--peer-type', 'random', '--security', 'medium']
@@ -191,6 +210,44 @@ class BluetoothCaptureTests(unittest.TestCase):
                 thread = threading.Thread(target=peer.serve, daemon=True)
                 thread.start()
                 try:
+                    if lease_case in ('renew', 'failure', 'crash'):
+                        lease_file = lease_dir/'lease'
+                        deadline = time.monotonic()+3
+                        while not lease_file.exists() and time.monotonic() < deadline and process.poll() is None:
+                            time.sleep(0.005)
+                        self.assertTrue(lease_file.exists(), name)
+                        first = lease_file.read_bytes()
+                        first_time = time.monotonic_ns()
+                        self.assertEqual(len(first), 52)
+                        self.assertEqual(first[:8], b'DRBTL001')
+                        self.assertEqual(first[8:24], uuid.UUID(Path('/proc/sys/kernel/random/boot_id').read_text().strip()).bytes)
+                        self.assertEqual(first[32:], b'02:00:00:00:00:02\0\0\0')
+                        self.assertEqual(stat.S_IMODE(lease_dir.stat().st_mode), 0o700)
+                        self.assertEqual(stat.S_IMODE(lease_file.stat().st_mode), 0o600)
+                        end, ns = struct.unpack_from('<II', first, 24)
+                        self.assertLess(first_time, end*1000000000+ns)
+                        self.assertLessEqual(end*1000000000+ns-first_time, 3000000000)
+                        if radio_model:
+                            radio_model.record, radio_model.now = first, first_time
+                            radio_model.event(13)
+                            self.assertEqual(radio_model.held(), 1)
+                        if lease_case == 'renew':
+                            deadline = time.monotonic()+2
+                            while time.monotonic() < deadline:
+                                renewed = lease_file.read_bytes()
+                                if renewed != first: break
+                                time.sleep(0.01)
+                            else:
+                                self.fail('capture did not renew its radio lease')
+                            second, ns2 = struct.unpack_from('<II', renewed, 24)
+                            self.assertGreater(second*1000000000+ns2, end*1000000000+ns)
+                            if radio_model:
+                                radio_model.record, radio_model.now = renewed, time.monotonic_ns()
+                                self.assertEqual(radio_model.call(radio_model.symbols['dreem_radio_lease_active']), 1)
+                        elif lease_case == 'failure':
+                            lease_dir.chmod(0o755)
+                        elif lease_case == 'crash':
+                            process.kill()
                     if interrupt:
                         if connect_case:
                             deadline = time.monotonic()+3
@@ -215,6 +272,18 @@ class BluetoothCaptureTests(unittest.TestCase):
                 self.assertEqual(stdout, '', (name, stdout))
                 self.assertNotIn('Sanitizer', stderr, (name, stderr))
                 self.assertNotIn('runtime error:', stderr, (name, stderr))
+                if lease_case:
+                    if lease_case == 'crash':
+                        self.assertTrue((lease_dir/'lease').exists(), 'killed owner unexpectedly cleaned its lease')
+                    else:
+                        self.assertFalse((lease_dir/'lease').exists(), 'capture leaked its radio lease')
+                    self.assertFalse((lease_dir/'lease.tmp').exists())
+                    if radio_model and lease_case in ('renew', 'failure', 'crash'):
+                        radio_model.record = ((lease_dir/'lease').read_bytes() if lease_case == 'crash' else None)
+                        radio_model.now = time.monotonic_ns()
+                        released = radio_model.reconcile()
+                        self.assertEqual(released['held'], 0)
+                        self.assertEqual(released['commands'], ['/usr/bin/btmgmt -i hci0 power off'])
                 if existing:
                     self.assertEqual(output.read_text(), 'preserve me\n')
                     rows = []
@@ -225,6 +294,11 @@ class BluetoothCaptureTests(unittest.TestCase):
                         self.assertEqual(rows[0]['transport'], 'bluetooth' if connect_case else 'simulation')
                         self.assertEqual(rows[0]['continuity'], 'unknown')
                         self.assertEqual(rows[0]['calibration'], 'unknown')
+                        if lease_case == 'crash':
+                            self.assertEqual(process.returncode, -signal.SIGKILL)
+                            self.assertNotEqual(rows[-1]['type'], 'end')
+                            results.append((process.returncode, rows, peer))
+                            continue
                         self.assertEqual(rows[-1]['type'], 'end',
                                          (name, process.returncode, stderr, [p.hex() for p in peer.packets]))
                         self.assertEqual(rows[-1]['status'], process.returncode)
@@ -306,6 +380,31 @@ class BluetoothCaptureTests(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertEqual(rows[-1]['reason'], 'duration')
             self.assertEqual(rows[-1]['values'], 1)
+
+    def test_radio_lease_renews_then_releases_after_capture(self):
+        for status, rows, _ in self.capture(mode='notify', maximum=5, duration=2500,
+                sensor={'notifications': (b'\x01',)}, connect_case='immediate', lease_case='renew'):
+            self.assertEqual(status, 0)
+            self.assertEqual(rows[-1]['reason'], 'duration')
+
+    def test_radio_lease_failure_stops_capture_and_cleans_up(self):
+        for status, rows, _ in self.capture(mode='notify', maximum=5, duration=4000,
+                sensor={'notifications': (b'\x01',)}, connect_case='immediate', lease_case='failure'):
+            self.assertEqual(status, 1)
+            self.assertEqual(rows[-1]['reason'], 'radio_lease_error')
+
+    def test_radio_lease_crashed_owner_leaves_only_expiring_request(self):
+        for status, rows, _ in self.capture(mode='notify', maximum=5, duration=4000,
+                sensor={'notifications': (b'\x01',)}, connect_case='immediate', lease_case='crash'):
+            self.assertEqual(status, -signal.SIGKILL)
+
+    def test_radio_lease_cleanup_on_connection_error_and_signal(self):
+        for status, rows, _ in self.capture(connect_case='connect', lease_case='cleanup'):
+            self.assertEqual(status, 1)
+            self.assertEqual(rows[-1]['reason'], 'connect_error')
+        for status, rows, _ in self.capture(connect_case='stall', lease_case='cleanup', interrupt=True):
+            self.assertEqual(status, 128+signal.SIGTERM)
+            self.assertEqual(rows[-1]['reason'], 'interrupted')
 
     def test_disconnect_and_malformed_discovery(self):
         for error in ('disconnect', 'malformed_discovery'):

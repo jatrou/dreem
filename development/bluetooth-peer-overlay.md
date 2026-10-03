@@ -7,7 +7,11 @@ the helper's `bluetoothctl remove` command. Other addresses reach the unchanged
 original helper. This is the first implemented part of the
 [Bluetooth ownership integration](bluetooth-policy.md).
 
-**Recording still powers the controller off.** This overlay does not yet make
+This document describes the default peer-only profile. The optional
+[radio-lease profile](bluetooth-radio-lease.md) adds bounded deferral and capture
+lifetime integration.
+
+**The default profile still powers the controller off during recording.** It does not yet make
 the [capture client](bluetooth-capture.md) usable continuously alongside the
 physical recorder. It has not been installed, and no patched vendor process has
 been launched. Verification on October 3, 2026 (America/New_York) used isolated
@@ -141,8 +145,8 @@ callback/filter returns preserve stack balance and ARM callee-saved registers.
 D-Bus, system commands, clocks and nested managers are synthetic, with the same
 boundaries as the [stock policy verifier](bluetooth-policy.md).
 
-Next is bounded sensor/controller power coordination, including restoration of
-companion advertising and release of any deferred power-off after sensor exit.
-Recovery and deliberate shutdown must retain their original precedence. Native
+The optional [radio-lease integration](bluetooth-radio-lease.md) now implements
+companion-setting restoration and deferred release after capture ends, while
+preserving recovery and other disable callers. Native
 startup, recording fidelity, timing, battery cost and a real sensor session still
 need qualification before this becomes an on-device feature.

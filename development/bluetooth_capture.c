@@ -16,6 +16,7 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
+#include "radio_lease_writer.h"
 
 #include "lib/bluetooth.h"
 #include "lib/l2cap.h"
@@ -39,6 +40,7 @@ struct capture {
     bool notify, done, output_failed;
     int status;
     int connecting_fd;
+    struct dreem_lease_writer lease;
     const char *reason;
 };
 
@@ -254,6 +256,14 @@ static void deadline_expired(int id, void *data)
     finish(c, c->count ? "duration" : "timeout", c->count ? 0 : 1);
 }
 
+static void renew_radio_lease(int id, void *data)
+{
+    struct capture *c = data;
+    if (c->done) return;
+    if (dreem_lease_writer_renew(&c->lease) || mainloop_modify_timeout(id, 1000))
+        finish(c, "radio_lease_error", 1);
+}
+
 static void interrupted(int signal_number, void *data)
 {
     finish(data, "interrupted", 128 + signal_number);
@@ -368,6 +378,7 @@ static void usage(void)
          "  --mode read|notify --duration-ms 1..3600000 --max-values 1..1000000 --output NEW_FILE\n"
          "  Connection: --local PUBLIC_ADDRESS --peer ADDRESS --peer-type public|random\n"
          "              --security low|medium|high\n"
+         "              [--radio-lease PRIVATE_DIRECTORY] (requires matching core integration)\n"
          "  Or: --att-fd N (exclusive connected LE ATT or simulated UNIX seqpacket socket)\n"
          "Read mode takes one complete value and requires --max-values 1.\n"
          "Notify mode enables the characteristic configuration and closes the connection on exit.\n"
@@ -377,18 +388,22 @@ static void usage(void)
 int main(int argc, char **argv)
 {
     enum { SERVICE = 256, CHARACTERISTIC, MODE, DURATION, MAXIMUM, OUTPUT,
-           LOCAL, PEER, PEER_TYPE, SECURITY, ATT_FD };
+           LOCAL, PEER, PEER_TYPE, SECURITY, ATT_FD, RADIO_LEASE };
     const struct option options[] = {
         {"service", 1, NULL, SERVICE}, {"characteristic", 1, NULL, CHARACTERISTIC},
         {"mode", 1, NULL, MODE}, {"duration-ms", 1, NULL, DURATION},
         {"max-values", 1, NULL, MAXIMUM}, {"output", 1, NULL, OUTPUT},
         {"local", 1, NULL, LOCAL}, {"peer", 1, NULL, PEER},
         {"peer-type", 1, NULL, PEER_TYPE}, {"security", 1, NULL, SECURITY},
-        {"att-fd", 1, NULL, ATT_FD}, {"help", 0, NULL, 'h'}, {NULL, 0, NULL, 0}
+        {"att-fd", 1, NULL, ATT_FD}, {"radio-lease", 1, NULL, RADIO_LEASE},
+        {"help", 0, NULL, 'h'}, {NULL, 0, NULL, 0}
     };
-    struct capture c = { .status = 1, .reason = "initialization_error", .connecting_fd = -1 };
+    struct capture c = { .status = 1, .reason = "initialization_error", .connecting_fd = -1,
+                         .lease = { .directory = -1, .lock = -1 } };
     bdaddr_t local, peer;
     const char *output = NULL;
+    const char *lease_directory = NULL;
+    char lease_peer[18];
     char service_text[MAX_LEN_UUID_STR], characteristic_text[MAX_LEN_UUID_STR];
     uint32_t seen = 0, milliseconds = 0, input_fd = 0;
     uint8_t type = 0, security = 0;
@@ -397,7 +412,7 @@ int main(int argc, char **argv)
     int option, fd, file_fd, family, timer, loop_result;
     while ((option = getopt_long(argc, argv, "h", options, NULL)) != -1) {
         if (option == 'h') { usage(); return 0; }
-        if (option < SERVICE || option > ATT_FD || seen & (1u << (option-SERVICE)))
+        if (option < SERVICE || option > RADIO_LEASE || seen & (1u << (option-SERVICE)))
             goto invalid;
         seen |= 1u << (option-SERVICE);
         switch (option) {
@@ -423,10 +438,11 @@ int main(int argc, char **argv)
             else goto invalid;
             break;
         case ATT_FD: if (!integer(optarg, 3, INT_MAX, &input_fd)) goto invalid; break;
+        case RADIO_LEASE: lease_directory = optarg; break;
         }
     }
     if (optind != argc || (seen & 0x3f) != 0x3f ||
-        (input_fd ? seen != 0x43f : seen != 0x3ff) || (!c.notify && c.maximum != 1))
+        (input_fd ? seen != 0x43f : (seen & ~0x800u) != 0x3ff) || (!c.notify && c.maximum != 1))
         goto invalid;
     family = input_fd ? socket_family((int)input_fd) : AF_BLUETOOTH;
     if (family < 0) { fputs("Invalid connected ATT socket\n", stderr); return 2; }
@@ -452,6 +468,14 @@ int main(int argc, char **argv)
     timer = mainloop_add_timeout((unsigned int)((c.deadline-time+999999)/1000000),
                                 deadline_expired, &c, NULL);
     if (timer < 0) goto cleanup_loop;
+    if (lease_directory) {
+        ba2str(&peer, lease_peer);
+        if (dreem_lease_writer_open(&c.lease, lease_directory, lease_peer) ||
+            mainloop_add_timeout(1000, renew_radio_lease, &c, NULL) < 0) {
+            finish(&c, "radio_lease_error", 1);
+            goto cleanup_loop;
+        }
+    }
     fd = input_fd ? (int)input_fd : connect_peer(&local, &peer, type, security, &pending);
     if (fd < 0) { finish(&c, "connect_error", 1); goto cleanup_loop; }
     if (pending) {
@@ -476,6 +500,10 @@ cleanup:
     gatt_db_unref(c.db);
     bt_att_unref(c.att);
     if (c.connecting_fd >= 0) close(c.connecting_fd);
+    if (dreem_lease_writer_close(&c.lease)) {
+        c.status = 1;
+        c.reason = "radio_lease_cleanup_error";
+    }
     fprintf(c.output, "{\"type\":\"end\",\"reason\":\"%s\",\"values\":%" PRIu32
             ",\"att_error\":%u,\"status\":%d}\n", c.reason, c.count, c.att_error, c.status);
     if (ferror(c.output) || fflush(c.output) || fsync(fileno(c.output))) c.output_failed = true;

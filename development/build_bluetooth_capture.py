@@ -45,6 +45,9 @@ def build(upstream, output, compiler, target, sanitize=False):
     require(patched.returncode == 0, 'BlueZ capture patch failed\n'+patched.stderr)
     app = (HERE/'bluetooth_capture.c').read_bytes()
     (source/'bluetooth_capture.c').write_bytes(app)
+    lease_sources = ('radio_lease.c', 'radio_lease.h', 'radio_lease_writer.c', 'radio_lease_writer.h')
+    for name in lease_sources:
+        (source/name).write_bytes((HERE/name).read_bytes())
     flags = ['-Os', '-D_GNU_SOURCE', '-DVERSION="5.52"', '-I.',
              '-ffunction-sections', '-fdata-sections']
     if target == 'arm':
@@ -53,10 +56,10 @@ def build(upstream, output, compiler, target, sanitize=False):
         require(target == 'host', 'sanitizers require host target')
         flags += ['-g', '-fno-omit-frame-pointer', '-fsanitize=address,undefined', '-fno-pie']
     commands, objects = [], []
-    for name in (*SOURCES, 'bluetooth_capture.c'):
+    for name in (*SOURCES, 'radio_lease.c', 'radio_lease_writer.c', 'bluetooth_capture.c'):
         obj = output/(name.replace('/', '_')[:-2]+'.o')
         args = [compiler, *flags]
-        if name == 'bluetooth_capture.c':
+        if name in ('bluetooth_capture.c', 'radio_lease.c', 'radio_lease_writer.c'):
             args += ['-std=c11', '-Wall', '-Wextra', '-Werror']
         args += ['-c', name, '-o', str(obj)]
         result = subprocess.run(args, cwd=source, capture_output=True, text=True, timeout=60)
@@ -75,6 +78,7 @@ def build(upstream, output, compiler, target, sanitize=False):
     report = {'upstream_url': BLUEZ_URL, 'upstream_sha256': BLUEZ_SHA256,
               'bluez_patch_sha256': digest(patch),
               'application_sha256': digest(app), 'target': target, 'sanitizers': sanitize,
+              'lease_source_sha256': {n: digest((source/n).read_bytes()) for n in lease_sources},
               'binary_sha256': digest(binary.read_bytes()), 'commands': commands,
               'command_working_directory': str(source),
               'source_sha256': {n: digest((source/n).read_bytes()) for n in SOURCES},

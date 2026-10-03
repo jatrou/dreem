@@ -17,8 +17,8 @@ from unicorn.arm_const import (UC_ARM_REG_R4, UC_ARM_REG_R5, UC_ARM_REG_R6,
                                UC_ARM_REG_R10, UC_ARM_REG_R11, UC_ARM_REG_SP)
 
 import verify_bluetooth_policy as stock
-from build_bluetooth_peer_overlay import (BASE, CODE, CALL_SITES, CORE_SIZE,
-                                         digest, file_offset, overlay_payload,
+from build_bluetooth_peer_overlay import (BASE, CODE, WRITABLE, CORE_SIZE,
+                                         digest, file_offset, overlay_layout,
                                          patch_core, read_regular, require)
 
 CALLEE_SAVED = (UC_ARM_REG_R4, UC_ARM_REG_R5, UC_ARM_REG_R6, UC_ARM_REG_R7,
@@ -27,17 +27,21 @@ SENTINELS = tuple(0x23450000+i*0x100 for i in range(8))
 
 
 class OverlayPolicy(stock.Policy):
-    def __init__(self, path, overlay):
+    def __init__(self, path, overlay, radio=False):
         super().__init__(path)
         raw = read_regular(path, CORE_SIZE)
-        payload = overlay_payload((overlay/'overlay.elf').read_bytes())
-        rebuilt, _ = patch_core(raw, payload)
+        payload, writable, self.symbols = overlay_layout((overlay/'overlay.elf').read_bytes(), radio)
+        rebuilt, patches = patch_core(raw, payload, writable, self.symbols)
         require((overlay/'nano_core.peer-overlay').read_bytes() == rebuilt,
                 'private overlay does not reproduce from original and component')
         self.cpu.mem_map(BASE, (4096+len(payload)+4095) & ~4095, 5)
         offset = file_offset(rebuilt, BASE, 4096+len(payload))
         self.cpu.mem_write(BASE, rebuilt[offset:offset+4096+len(payload)])
-        for address in CALL_SITES:
+        if writable:
+            self.cpu.mem_map(WRITABLE, 4096, 3)
+            self.cpu.mem_write(WRITABLE, writable)
+        for patch in patches:
+            address = patch['virtual_address']
             offset = file_offset(rebuilt, address)
             self.cpu.mem_write(address, rebuilt[offset:offset+4])
         self.ranges += ((CODE, CODE+len(payload)),)

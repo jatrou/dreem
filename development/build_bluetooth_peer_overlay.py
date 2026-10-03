@@ -22,6 +22,7 @@ HERE = Path(__file__).resolve().parent
 CORE_SHA256 = 'dfc83b247b505aa08ea62060f999192112a47b606754d5f469357b7addf0295a'
 CORE_SIZE = 14_170_096
 BASE, CODE = 0x01000000, 0x01001000
+WRITABLE = BASE+0x20000
 ORIGINAL_HELPER = 0x38318
 CALL_SITES = (0x38670, 0x38b4c)
 PHDR = struct.Struct('<8I')
@@ -102,7 +103,7 @@ def headers(data):
     return result
 
 
-def append_rx(data, payload, *, base=BASE):
+def append_rx(data, payload, *, base=BASE, writable=b''):
     """Append a read/execute segment with relocated PHDRs, keeping Linux 4.1 AT_PHDR.
 
     Used on independently compiled loader fixtures as well as the pinned core.
@@ -118,19 +119,28 @@ def append_rx(data, payload, *, base=BASE):
             'overlay extent or alignment invalid')
     require(all((p[2]+p[5]+4095) & ~4095 <= base for p in loads),
             'overlay overlaps an original load or its BSS')
-    count, size = len(table)+1, 4096+len(payload)
+    require(len(writable) <= 4096, 'oversized writable overlay state')
+    count, size = len(table)+1+bool(writable), 4096+len(payload)
     phdrs = [p for p in table if p[0] == PT_PHDR]
     require(len(phdrs) <= 1, 'ambiguous PHDR segment')
     if phdrs:
         phdrs[0][:] = [PT_PHDR, offset, base, base, count*32, count*32, 4, 4]
     table.append([PT_LOAD, offset, base, base, size, size, 5, 0x10000])
+    end = offset+size
+    if writable:
+        data_offset, data_address = offset+0x20000, base+0x20000
+        table.append([PT_LOAD, data_offset, data_address, data_address,
+                      len(writable), len(writable), 6, 0x10000])
+        end = data_offset+len(writable)
     result = bytearray(data)
-    result.extend(bytes(offset+size-len(result)))
+    result.extend(bytes(end-len(result)))
     struct.pack_into('<I', result, 28, offset)
     struct.pack_into('<H', result, 44, count)
     for i, p in enumerate(table):
         PHDR.pack_into(result, offset+i*32, *p)
-    result[offset+4096:] = payload
+    result[offset+4096:offset+4096+len(payload)] = payload
+    if writable:
+        result[data_offset:] = writable
     headers(result)
     return bytes(result)
 
@@ -142,7 +152,7 @@ def file_offset(data, virtual, length=4):
     return matches[0]
 
 
-def overlay_payload(data):
+def overlay_layout(data, radio=False):
     elf = ELFFile(io.BytesIO(data))
     require(elf['e_machine'] == 'EM_ARM' and elf['e_type'] == 'ET_EXEC' and
             elf['e_entry'] == CODE and elf['e_flags'] == 0x5000400,
@@ -155,6 +165,9 @@ def overlay_payload(data):
     require(symbols.get_symbol_by_name('dreem_peer_connected')[0]['st_value'] == CODE,
             'overlay entry symbol differs')
     allocated = [s for s in elf.iter_sections() if s['sh_flags'] & 2 and s['sh_size']]
+    writable = [s for s in allocated if s['sh_flags'] & 1]
+    allocated = [s for s in allocated if not s['sh_flags'] & 1]
+    require(radio or not writable, 'unexpected writable overlay state')
     require(allocated and all(not s['sh_flags'] & 1 and s['sh_type'] == 'SHT_PROGBITS' and
                               CODE <= s['sh_addr'] < CODE+65536 for s in allocated),
             'overlay needs writable, zero-filled or out-of-range storage')
@@ -164,20 +177,46 @@ def overlay_payload(data):
     for section in allocated:
         start = section['sh_addr']-CODE
         payload[start:start+section['sh_size']] = section.data()
-    return bytes(payload)
+    state = bytearray()
+    if radio:
+        require(writable and all(s['sh_type'] in ('SHT_PROGBITS', 'SHT_NOBITS') and
+                                 not s['sh_flags'] & 4 and WRITABLE <= s['sh_addr'] and
+                                 s['sh_addr']+s['sh_size'] <= WRITABLE+4096 for s in writable),
+                'invalid writable overlay state')
+        state = bytearray(max(s['sh_addr']+s['sh_size'] for s in writable)-WRITABLE)
+        for section in writable:
+            start = section['sh_addr']-WRITABLE
+            if section['sh_type'] == 'SHT_PROGBITS':
+                state[start:start+section['sh_size']] = section.data()
+        require(not any(state), 'radio overlay must start with no deferred power-off')
+    return bytes(payload), bytes(state), {s.name: s['st_value'] for s in symbols.iter_symbols() if s.name}
 
 
-def patch_core(original, payload):
+def overlay_payload(data):
+    return overlay_layout(data)[0]
+
+
+def patch_core(original, payload, writable=b'', symbols=None):
     require(len(original) == CORE_SIZE and digest(original) == CORE_SHA256, 'unreviewed original core')
-    result = bytearray(append_rx(original, payload))
+    result = bytearray(append_rx(original, payload, writable=writable))
     patches = []
-    for address in CALL_SITES:
+    calls = [(address, ORIGINAL_HELPER, CODE) for address in CALL_SITES]
+    if writable:
+        require(symbols is not None, 'radio overlay symbols are required')
+        for address, original_target, name in ((0x87130, 0x16f50, 'dreem_power_off_shim'),
+                                               (0x870e4, 0x16f50, 'dreem_disable_probe_shim'),
+                                               (0x86fd8, 0x16f50, 'dreem_enable_probe'),
+                                               (0x64d64, 0x863b8, 'dreem_event_wait')):
+            target = symbols.get(name, 0)
+            require(CODE <= target < CODE+len(payload), 'missing radio entry symbol')
+            calls.append((address, original_target, target))
+    for address, original_target, target in calls:
         offset = file_offset(original, address)
-        require(original[offset:offset+4] == arm_branch(address, ORIGINAL_HELPER),
+        require(original[offset:offset+4] == arm_branch(address, original_target),
                 'original call site differs')
-        result[offset:offset+4] = arm_branch(address, CODE)
+        result[offset:offset+4] = arm_branch(address, target)
         patches.append({'virtual_address': address, 'file_offset': offset,
-                        'original_target': ORIGINAL_HELPER, 'new_target': CODE})
+                        'original_target': original_target, 'new_target': target})
     allowed = {28, 29, 30, 31, 44, 45}
     for patch in patches:
         allowed.update(range(patch['file_offset'], patch['file_offset']+4))
@@ -186,7 +225,7 @@ def patch_core(original, payload):
     return bytes(result), patches
 
 
-def build(core, peer_file, output, compiler):
+def build(core, peer_file, output, compiler, radio_lease=False):
     original = read_regular(core, CORE_SIZE)
     require(len(original) == CORE_SIZE and digest(original) == CORE_SHA256, 'unreviewed original core')
     peers = normalize_peers(json.loads(read_regular(peer_file, 16384, private=True)))
@@ -194,6 +233,10 @@ def build(core, peer_file, output, compiler):
     output = output.resolve()
     source = (HERE/'bluetooth_peer_filter.c').read_bytes()
     write_private(output/'bluetooth_peer_filter.c', source)
+    additional = ('radio_lease.h', 'radio_lease.c', 'radio_lease_arm.c',
+                  'bluetooth_radio_guard.c', 'bluetooth_radio_shims.S') if radio_lease else ()
+    for name in additional:
+        write_private(output/name, (HERE/name).read_bytes())
     # Only validated hexadecimal strings enter generated C. An empty table is a
     # regression control: every peer still reaches the original helper.
     table = ('/* Private, operator-specific build input. */\n'
@@ -201,14 +244,22 @@ def build(core, peer_file, output, compiler):
              'const char dreem_extension_peers[][18] = {\n'+
              ',\n'.join('    "'+p+'"' for p in (peers or ['']))+'\n};\n').encode()
     write_private(output/'peers.c', table)
+    bindings = '''stock_system = 0x16f50; stock_wait = 0x863b8;
+stock_trywait = 0x168f0; stock_errno = 0x16494; stock_usleep = 0x167dc;
+stock_testcancel = 0x16e6c; stock_syslog = 0x16008; stock_state = 0xecaf7c;
+stock_cancelstate = 0x16fbc;
+''' if radio_lease else ''
+    writable_section = (f'. = {WRITABLE:#x}; .data : {{ *(.data*) *(.bss*) *(COMMON) }}'
+                        if radio_lease else '.data : { *(.data*) *(.bss*) *(COMMON) }\n'
+                        '  ASSERT(SIZEOF(.data) == 0, "overlay must have no writable state")')
     linker = f'''ENTRY(dreem_peer_connected)
 stock_peer_connected = {ORIGINAL_HELPER:#x};
+{bindings}
 SECTIONS {{
   . = {CODE:#x};
   .text : {{ *(.text.entry) *(.text*) }}
   .rodata : {{ *(.rodata*) }}
-  .data : {{ *(.data*) *(.bss*) *(COMMON) }}
-  ASSERT(SIZEOF(.data) == 0, "overlay must have no writable state")
+  {writable_section}
   /DISCARD/ : {{ *(.comment) *(.note*) *(.ARM.exidx*) *(.ARM.extab*) *(.eh_frame*) }}
 }}
 '''.encode()
@@ -218,23 +269,25 @@ SECTIONS {{
                '-ffreestanding', '-fno-builtin', '-fno-stack-protector', '-fno-pie',
                '-fno-unwind-tables', '-fno-asynchronous-unwind-tables',
                '-nostdlib', '-static', '-no-pie', '-Wl,--build-id=none,-T,overlay.ld',
-               'bluetooth_peer_filter.c', 'peers.c', '-o', 'overlay.elf']
+               'bluetooth_peer_filter.c', 'peers.c',
+               *(name for name in additional if name.endswith(('.c', '.S'))), '-o', 'overlay.elf']
     completed = subprocess.run(command, cwd=output, capture_output=True, text=True, timeout=60)
     require(completed.returncode == 0, 'overlay compile failed\n'+completed.stderr)
     (output/'overlay.elf').chmod(0o600)
     component = (output/'overlay.elf').read_bytes()
-    payload = overlay_payload(component)
-    modified, patches = patch_core(original, payload)
+    payload, writable, symbols = overlay_layout(component, radio_lease)
+    modified, patches = patch_core(original, payload, writable, symbols)
     write_private(output/'nano_core.peer-overlay', modified)
     report = {'original_sha256': CORE_SHA256, 'modified_sha256': digest(modified),
               'component_sha256': digest(component), 'payload_sha256': digest(payload),
               'payload_bytes': len(payload), 'peer_count': len(peers), 'call_sites': patches,
               'source_sha256': digest(source), 'private_peer_source_sha256': digest(table),
+              'additional_source_sha256': {name: digest((output/name).read_bytes()) for name in additional},
               'linker_sha256': digest(linker), 'builder_sha256': digest(Path(__file__).read_bytes()),
               'program_header_address': BASE, 'code_address': CODE,
               'command': command, 'working_directory': str(output),
               'vendor_code_in_output': True, 'installed': False,
-              'radio_power_policy_changed': False, 'physical_qualification': False}
+              'radio_power_policy_changed': radio_lease, 'physical_qualification': False}
     write_private(output/'build.json', (json.dumps(report, indent=2)+'\n').encode())
     return report
 
@@ -245,8 +298,9 @@ def main():
     parser.add_argument('peer_file', type=Path)
     parser.add_argument('output', type=Path)
     parser.add_argument('--compiler', required=True)
+    parser.add_argument('--radio-lease', action='store_true', help='include bounded deferred power-off integration')
     args = parser.parse_args()
-    report = build(args.core, args.peer_file, args.output, args.compiler)
+    report = build(args.core, args.peer_file, args.output, args.compiler, args.radio_lease)
     print(json.dumps({k: report[k] for k in ('modified_sha256', 'payload_bytes', 'peer_count', 'installed')}))
 
 

@@ -124,6 +124,12 @@ class PeerOverlayTests(unittest.TestCase):
                         p = subprocess.run(['qemu-arm', '-cpu', 'cortex-a7', '-L', prefix,
                                             str(binary), *extra], capture_output=True, text=True, timeout=20)
                         self.assertEqual((p.returncode, p.stdout, p.stderr), (0, wanted, ''))
+                    radio = root/(exe.name+'-radio')
+                    write_private(radio, append_rx(original, payload, writable=bytes(4)))
+                    radio.chmod(0o700)
+                    p = subprocess.run(['qemu-arm', '-cpu', 'cortex-a7', '-L', prefix,
+                                        str(radio), 'radio'], capture_output=True, text=True, timeout=20)
+                    self.assertEqual((p.returncode, p.stdout, p.stderr), (0, 'overlay-loader-ok\n', ''))
                     # Corruptions must be rejected before producing a candidate.
                     corruptions = [original[:30], b'wrong'+original[5:]]
                     for field, value in ((16, 3), (18, 62), (42, 16), (44, 0)):

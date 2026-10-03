@@ -30,11 +30,12 @@ int main(int argc, char **argv)
     char **environment = environ;
     Elf32_auxv_t *aux;
     Elf32_Phdr *phdr = NULL;
-    unsigned phnum = 0, phent = 0, i, found = 0;
+    unsigned phnum = 0, phent = 0, i, found = 0, writable = 0;
     unsigned char *allocation;
     pthread_t thread;
     void *thread_result = (void *)1;
-    int patched = argc == 2 && strcmp(argv[1], "patched") == 0;
+    int radio = argc == 2 && strcmp(argv[1], "radio") == 0;
+    int patched = radio || (argc == 2 && strcmp(argv[1], "patched") == 0);
     while (*environment)
         ++environment;
     aux = (Elf32_auxv_t *)(environment+1);
@@ -60,8 +61,15 @@ int main(int argc, char **argv)
                 return 14;
             ++found;
         }
+        if (p->p_type == PT_LOAD && p->p_vaddr == 0x01020000) {
+            volatile unsigned *word = (void *)(uintptr_t)p->p_vaddr;
+            if (p->p_flags != (PF_R | PF_W) || p->p_filesz != 4 || *word) return 18;
+            *word = 19;
+            if (*word != 19) return 19;
+            ++writable;
+        }
     }
-    if (found != (unsigned)patched)
+    if (found != (unsigned)patched || writable != (unsigned)radio)
         return 15;
     allocation = calloc(1, 1024*1024);
     if (!allocation || allocation[0] || allocation[1024*1024-1])

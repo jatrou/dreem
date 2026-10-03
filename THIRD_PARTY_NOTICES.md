@@ -57,6 +57,19 @@ to redistribute that output. Runtime libraries used for the independent loader
 fixtures retain their own terms and are not bundled. See
 [overlay scope and qualification](development/bluetooth-peer-overlay.md).
 
+The shared local lease sources `development/radio_lease.c`, `radio_lease.h`,
+`radio_lease_writer.c` and `radio_lease_writer.h` are newly authored and dual
+licensed under **Apache-2.0 OR GPL-2.0-or-later**, at the recipient's option,
+copyright 2026 Dreem research contributors. The capture build can use the GPL
+option; the independent private-core overlay can use the Apache option.
+`development/radio_lease_arm.c`, `bluetooth_radio_guard.c`,
+`bluetooth_radio_shims.S`, `verify_bluetooth_radio_overlay.py`,
+`tests/radio_lease_harness.c`, `tests/radio_guard_threads.c` and
+`tests/test_radio_lease.py` are new Apache-2.0 source. Kernel UAPI headers and
+runtime libraries used by builds retain their own terms; no copied firmware
+instructions, runtime binaries or generated patched core are bundled. See
+[radio coordination and test boundaries](development/bluetooth-radio-lease.md).
+
 ## Existing file streamer repair
 
 `development/repair_streamer_poll.py`, `tests/streamer_poll_harness.c` and
