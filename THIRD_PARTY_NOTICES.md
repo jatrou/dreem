@@ -49,7 +49,7 @@ is included in this repository; the SPDX identifiers on these files select
 version 2 only. No vendor kernel code or extracted binary is bundled with them.
 
 `development/kernel/`, `development/build_adc_module.py`, and
-`development/verify_adc_module.py` use the same GPL-2.0-only terms. Their Linux
+`development/verify_adc_module.py` use the same GPL-2.0-only terms. Their acquisition
 integration and verification code is independently written. Public Linux
 headers/tooling and private stock export metadata are external build inputs;
 compiled kernels and modules are not bundled here.
@@ -68,6 +68,17 @@ copyright 2010 Sascha Hauer/Pengutronix and 2004-2016 Freescale Semiconductor.
 The upstream file retains its notice in the generated private source tree.
 The complete upstream source, reference-manual PDF, and vendor firmware are
 external inputs, not bundled by these build/verification tools.
+
+## Bus-frequency policy reconstruction
+
+`development/apply_busfreq_overlay.py` uses GPL-2.0-or-later and contains
+matching anchors from the public NXP `busfreq-imx.c`, copyright 2011-2016
+Freescale Semiconductor and 2017 NXP. The generated upstream file retains its
+notice. `development/kernel/busfreq_dreem.inc` uses GPL-2.0-only; its clock
+operations adapt that public driver's helpers, with independently reconstructed
+Femto policy. `development/verify_busfreq.py` is new GPL-2.0-only verification
+code, copyright 2026 Dreem research contributors. Private stock decompilations
+and vendor binaries are not included.
 
 ## Upstream source snapshots
 

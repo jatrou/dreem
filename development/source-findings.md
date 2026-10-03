@@ -88,6 +88,11 @@ underflow, without upstream automatic frequency lowering. There is no matching
 mode-7 decrement branch. Repeated command-7 calls are therefore unsuitable as
 an exploratory probe. These findings do not establish all clock behavior.
 
+The [bus-frequency reconstruction](busfreq-findings.md) now implements these
+counter rules, suppressed automatic lowering, and the distinct Femto high-rate
+clock sequence. It builds into the research kernel and is compared against
+the saved ARM routines. DDR-transition internals and device qualification remain.
+
 ## EEG device interface
 
 Both the kernel and `nano_core` confirm `/dev/eeg_cdev` is the ADC acquisition

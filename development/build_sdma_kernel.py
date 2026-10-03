@@ -14,11 +14,12 @@ import subprocess
 
 from elftools.elf.elffile import ELFFile
 from apply_sdma_overlay import apply
+from apply_busfreq_overlay import apply as apply_busfreq
 from build_adc_module import REVISION, RAW_HASH, SHARED, sha
 from recover_exports import recover, module_versions
 
 
-def build(source, baseline, stock, output, compiler, jobs):
+def build(source, baseline, stock, output, compiler, jobs, busfreq=False):
     if output.exists() or output.is_symlink():
         raise ValueError("output must be a new private directory")
     source, baseline, stock, output = (p.resolve() for p in (source, baseline, stock, output))
@@ -50,7 +51,10 @@ def build(source, baseline, stock, output, compiler, jobs):
     if archive.wait():
         raise ValueError("source snapshot failed")
     apply(tree)
-    (kernel / ".config").write_text(config + "\nCONFIG_DREEM_EEG_SDMA=y\n")
+    if busfreq:
+        apply_busfreq(tree)
+    (kernel / ".config").write_text(config + "\nCONFIG_DREEM_EEG_SDMA=y\n" +
+                                    ("CONFIG_DREEM_BUSFREQ=y\n" if busfreq else ""))
     make = ["make", "-C", str(tree), "O=" + str(kernel), "ARCH=arm",
             "CROSS_COMPILE=" + compiler, "LOCALVERSION=", "HOSTCFLAGS=-O2 -fcommon",
             "KBUILD_BUILD_USER=builder", "KBUILD_BUILD_HOST=dreem-research"]
@@ -59,6 +63,8 @@ def build(source, baseline, stock, output, compiler, jobs):
         subprocess.run(make + ["olddefconfig", "modules_prepare"], stdout=log, stderr=subprocess.STDOUT, check=True)
         if "CONFIG_DREEM_EEG_SDMA=y" not in (kernel / ".config").read_text().splitlines():
             raise ValueError("research provider was not enabled")
+        if busfreq and "CONFIG_DREEM_BUSFREQ=y" not in (kernel / ".config").read_text().splitlines():
+            raise ValueError("research bus-frequency policy was not enabled")
         print("Building integrated kernel", flush=True)
         subprocess.run(make + ["-j" + str(jobs), "vmlinux"], stdout=log, stderr=subprocess.STDOUT, check=True)
         # Kernel symbol CRCs come from this actual provider, without a dummy
@@ -97,6 +103,12 @@ def build(source, baseline, stock, output, compiler, jobs):
                                 here / "kernel/sdma_eeg_linux.h", here / "kernel/sdma_eeg_linux.inc",
                                 here / "sdma_acquire.asm", here / "sdma_assemble.py", here / "sdma_disassemble.py",
                                 here / "apply_sdma_overlay.py", Path(__file__).resolve()]}}
+    if busfreq:
+        report["busfreq_object_sha256"] = sha(kernel / "arch/arm/mach-imx/busfreq-imx.o")
+        report["busfreq_runtime_enabled_by_default"] = False
+        report["source_files"].update({str(p.relative_to(here)): sha(p) for p in
+                                      [here / "apply_busfreq_overlay.py",
+                                       here / "kernel/busfreq_dreem.inc"]})
     (output / "provider-build.json").write_text(json.dumps(report, indent=2) + "\n")
     return report
 
@@ -115,10 +127,13 @@ def main():
     parser.add_argument("new_output", type=Path)
     parser.add_argument("compiler_prefix")
     parser.add_argument("--jobs", type=int, default=8, choices=range(1, 65))
+    parser.add_argument("--busfreq-policy", action="store_true",
+                        help="also compile the experimental, runtime-disabled Femto clock policy")
     args = parser.parse_args()
     os.umask(0o077)
     print(json.dumps(build(args.nxp_source, args.baseline_build, args.stock_kernel_elf,
-                           args.new_output, args.compiler_prefix, args.jobs), indent=2))
+                           args.new_output, args.compiler_prefix, args.jobs,
+                           args.busfreq_policy), indent=2))
 
 
 if __name__ == "__main__":

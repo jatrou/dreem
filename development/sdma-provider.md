@@ -213,7 +213,9 @@ pause/resume is implemented and modeled; coordinated context reset after a
 fault, suspend/resume, and normal memory reclamation are unfinished. A latched
 DMA fault requires reboot, not repeated trigger writes.
 No hot-unbind/unload lifecycle is supported. These limitations prevent using
-this build as an everyday headset kernel. The board's missing clock, DDR,
-audio, and other driver behavior also remains a separate reconstruction task.
+this build as an everyday headset kernel. An optional
+[bus-frequency overlay](busfreq-findings.md) reconstructs the Femto clock policy
+and its high-rate sequence. DDR internals, audio, and other board behavior still
+need reconstruction or qualification.
 Device-side qualification still needs verified recovery, hardware identity,
 recording fidelity, latency, power measurements, and restoration proof.

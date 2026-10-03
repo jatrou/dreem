@@ -18,6 +18,12 @@ and our independent tools provide a way to add programs without replacing it.
 See [source and hardware findings](source-findings.md) for the evidence and
 remaining gaps.
 
+An optional [Femto bus-frequency policy](busfreq-findings.md) now reconstructs
+the saved counter rules, disabled automatic lowering, and modified high-rate
+clock sequence. It builds into the kernel and passes 617 modeled checks,
+including comparisons with the saved ARM routines and negative controls against
+the unmodified NXP kernel. Runtime activation remains off by default.
+
 The EEG DMA program can now be recovered into assembly that reassembles
 exactly, and an independent raw-sample decoder matches the recorder's ARM
 conversion routine byte-for-byte on 8,198 synthetic records. These are useful
