@@ -76,3 +76,94 @@ binary private; the tool's GPL license does not relicense its input or output.
 
 Editable, exactly reassemblable code is now available for this small component.
 The full acquisition driver and vendor application are still not rebuilt.
+
+## Reconstructed provider primitives
+
+`sdma_eeg.c` and `sdma_eeg.h` now implement channel-context construction and
+producer-counter progress in independent C. **These are not yet a Linux SDMA
+provider.** They do not allocate DMA memory, load firmware, bind a device,
+install an interrupt handler, publish kernel exports, or replace the installed
+driver. They are intended for the pending provider integration.
+
+The recovered context is 32 words (128 bytes). Word 0 holds the 14-bit program
+counter; words 2–4 hold ring physical address, 1,024, and counter physical
+address. Words 5–9 retain supplied r3–r7; all remaining words are zero. The
+stock channel-0 descriptor uses command/status/count word `0x018b0020`, the
+context DMA address, and SDMA data-memory address `0x820` for channel 1.
+The reconstructed builder validates output length, PC encoding, nonzero aligned
+DMA addresses, ring-address wrap, and ring/counter overlap. Those checks do not
+establish that the addresses belong to allocated DMA memory or valid program RAM.
+
+The progress function preserves these stock behaviors:
+
+- The first interrupt only marks initialization; it publishes no frames and
+  leaves the software counter and producer index unchanged.
+- With a stable DMA counter, each elapsed count advances the producer index
+  modulo 64 and publishes it before notifying the reader. The software counter
+  increments after the notification, including unsigned 32-bit wrap.
+- A duplicate counter produces no new notifications.
+
+The stock interrupt routine repeatedly rereads the DMA counter inside its
+catch-up loop. In emulation, a counter that advances with each read prevents
+that loop from finishing within the instruction bound. A reset from 10 to 0
+also exceeds the bound; it is treated as nearly a full 32-bit wrap. Even a
+65-frame jump publishes 65 notifications although the ring holds only 64 frames.
+
+The reconstruction instead accepts one coherent counter snapshot per interrupt
+and processes at most 64 notifications. Larger jumps latch `-75` (`EOVERFLOW`)
+without publishing new frames. The fault persists until a coordinated reset.
+The future Linux provider must disable DMA, coordinate with the reader, and
+implement the notification callback with the required DMA/publication barriers.
+The primitive itself cannot perform those operations. This per-interrupt bound
+also does not detect every accumulated overrun across interrupts or prevent
+concurrent DMA writes from overwriting a frame during a read.
+
+### Differential verification
+
+```sh
+/private/work/venv/bin/python development/verify_sdma_eeg.py \
+  /private/work/inspection/kernel.elf \
+  --arm-compiler /path/to/armv7-eabihf--uclibc--stable-2018.11-1/bin/arm-linux-gcc
+```
+
+The verifier executes only the original `sdma_int_handler` and
+`trigger_user_script` instructions in synthetic memory, stubbing kernel
+services. The interrupt comparison supplies only channel-1 interrupts with no
+ordinary DMA descriptors; it does not verify general DMA dispatch. Context
+comparisons use successful synthetic allocations and context loads; they do
+not validate the stock loader's error paths.
+
+Native C and Cortex-A7 C match **387 progress cases** and **12 context cases**.
+Progress covers all 64 producer positions, deltas 0/1/2/63/64, counter wrap at
+every position, and initialization with zero/nonzero counters. Comparisons
+include notification order and the software counter visible at each wakeup.
+Context comparisons cover different PC encodings, DMA addresses, and seeded
+register values, including unchanged guard bytes around the output.
+
+Ten invalid-context cases and four invalid-progress cases are rejected without
+changing output/state. Three excessive-jump cases latch faults on both targets;
+the moving-counter case demonstrates the deliberate snapshot behavior. Runs
+with both GCC 7.3 and GCC 13 produce the same combined comparison SHA-256:
+`d76e3efca4be49489e2ae5bbb2a5c26839177026eeb0efd28c5f5c08588cdb5f`.
+The ARM builds use soft-float and disable vectorization. The C component also
+compiles as an object through the pinned Linux 4.1.15 Kbuild with GCC 7.3 and
+warnings treated as errors. This is compile compatibility, not a linked or
+qualified replacement provider.
+
+### Remaining loader work
+
+The original trigger marks its one-time initialization flag before allocating
+the ring and counter; the inspected path does not check the allocation results.
+The script-store routine copies the caller's byte count into its saved-script
+region without an observed length check. The next recovered symbol is 1,024
+bytes after that region's start; the recovered symbol table does not preserve
+the original array declaration. It also saves the script even when the upload
+returns an error. The archived 106-byte program fits that region, but these
+observations are reasons to add validated sizes, allocation rollback, and
+success-only publication in the replacement loader.
+
+Provider integration still requires real DMA allocation/lifetime ownership,
+bounded script placement, channel reservation and context loading, ordered
+interrupt dispatch, reader coordination on faults, and suspend/resume handling.
+The complete board kernel additionally needs the other Dreem-specific drivers
+and board behavior identified in [source findings](source-findings.md).

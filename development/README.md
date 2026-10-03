@@ -23,6 +23,12 @@ exactly, and an independent raw-sample decoder matches the recorder's ARM
 conversion routine byte-for-byte on 8,198 synthetic records. These are useful
 reconstructed components, not the complete original source.
 
+Independent SDMA provider primitives now construct the channel context and
+handle producer-counter progress. Their native and ARM builds match 399 stock
+context/progress cases and add bounded handling of counter jumps. They compile
+with the matched Linux headers, but DMA allocation, loading, interrupt wiring,
+and power management remain to be integrated. See [DMA findings](sdma-findings.md).
+
 The SDMA-path ADC initializer is also reconstructed in C. Its host and ARM
 builds match the original kernel's modeled I/O traces in eight scenarios,
 with bounded polling added for a stalled peripheral. See

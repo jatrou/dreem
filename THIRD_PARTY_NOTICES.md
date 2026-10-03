@@ -45,6 +45,12 @@ integration and verification code is independently written. Public Linux
 headers/tooling and private stock export metadata are external build inputs;
 compiled kernels and modules are not bundled here.
 
+`development/sdma_eeg.c`, `development/sdma_eeg.h`, and
+`development/verify_sdma_eeg.py` also use GPL-2.0-only. They independently
+reconstruct and verify the observed kernel channel-context and interrupt
+progress behavior. Original vendor code, recovered assembly, and compiled
+firmware are not included in these files.
+
 ## Upstream source snapshots
 
 The files under `third-party/source-snapshots/` are attributed snapshots of these upstream repositories:
