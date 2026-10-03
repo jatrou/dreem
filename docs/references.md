@@ -7,6 +7,8 @@ This file replaces copied upstream README snapshots. Keep links here instead of 
 - Dreem 2 FCC filing: https://fccid.io/2AH2Q-DREEM2
 - MajorInput Dreem teardown: https://www.majorinput.co.uk/post/a-closer-look-at-the-dreem-eeg-headband
 - Dreem Wi-Fi behavior/support context: https://support.dreem.com/
+- ST LIS2HH12 component datasheet: https://www.st.com/resource/en/datasheet/lis2hh12.pdf
+- ST LIS2HH12 public driver source: https://github.com/STMicroelectronics/lis2hh12-pid/tree/09c28df1a67e2d85e4ea9f6447e6a9a983de2f0e
 
 ## Data And Research Context
 

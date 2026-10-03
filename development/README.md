@@ -80,6 +80,13 @@ native `accelerometer.data` files and reports vector/axis variation without
 accessing the sensor bus. Six feature tests pass on host and ARM emulation;
 device-side timing and recording-fidelity checks remain.
 
+The [source-built accelerometer lifecycle](motion-lifecycle.md) now integrates
+ST's BSD-licensed LIS2HH12 driver with checked reset, selectable rates/ranges,
+fresh-sample reads and power-down. Its host/ARM checks cover 72 profile/address
+combinations and transfer failures. Original ARM replay independently verifies
+the recorder's startup sequence and reproduces six false-success paths.
+Exclusive owner integration and physical sensor qualification remain open.
+
 The [optical decoder and checked I2C transport](sensor-transport.md) add an
 editable basis for sensor integrations. The decoder matches 4,193 original ARM
 cases on host and ARM builds. The transport passes 137 scenarios per build,
@@ -370,6 +377,7 @@ sh development/build.sh
   tests.test_firmware_development tests.test_kernel_exports \
   tests.test_compare_exports tests.test_sdma_disassemble \
   tests.test_eeg_samples tests.test_eeg_quality tests.test_motion_quality \
+  tests.test_optical_quality tests.test_motion_sensor \
   tests.test_algo_health tests.test_session_motion tests.test_feature_trial \
   tests.test_sensor_i2c tests.test_optical_fifo tests.test_optical_sensor -v
 ```

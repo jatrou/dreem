@@ -1,0 +1,15 @@
+{
+  "commit": "09c28df1a67e2d85e4ea9f6447e6a9a983de2f0e",
+  "files": {
+    "lis2hh12_reg.c": "296d6200de0e3bb795aa013ab94688845e32f0f282d9dadd7f89ffd9858549bc",
+    "lis2hh12_reg.h": "86d9c861a275319b6ee5cce5c42b6441922b27d82b99a0e0ddeb8f94af2bb1ff",
+    "LICENSE": "b54f36a43cf9b8f6292c8f0f3b4c267ebd59859587e0152c94305bc81dda68bc"
+  },
+  "upstream": "https://github.com/STMicroelectronics/lis2hh12-pid",
+  "normalization": "CRLF converted to LF; no code changes",
+  "snapshot_sha256": {
+    "lis2hh12_reg.c": "cf624b82d05827b770c0a57dea0c3c05e245146b10d020b03ccc247d45503596",
+    "lis2hh12_reg.h": "a691255669e09e0d782806b58ace2f45dbc4ac975ef52ad3078e68d8f566d1bf",
+    "LICENSE": "b54f36a43cf9b8f6292c8f0f3b4c267ebd59859587e0152c94305bc81dda68bc"
+  }
+}

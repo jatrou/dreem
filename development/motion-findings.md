@@ -6,6 +6,10 @@ can follow them as they grow. It requires neither a replacement kernel nor
 access to the sensor bus. These are offline-verified components; no new program
 has been installed or tested on the headset.
 
+The separate [owned motion lifecycle](motion-lifecycle.md) now integrates the
+public ST driver for selectable rates/ranges and checked raw acquisition. It
+also verifies the original startup/read routines and their failure behavior.
+
 ## Verified data path
 
 The input is the exact `nano_core` identified in [source findings](source-findings.md).

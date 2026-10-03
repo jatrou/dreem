@@ -46,6 +46,24 @@ extracted vendor instructions or decompiler output. The optional comparison
 requires a privately supplied firmware executable. See
 [motion findings](development/motion-findings.md) for provenance and limits.
 
+## LIS2HH12 driver and owned acquisition
+
+`third-party/source-snapshots/lis2hh12-pid/lis2hh12_reg.c` and its header are
+STMicroelectronics' public driver at commit
+`09c28df1a67e2d85e4ea9f6447e6a9a983de2f0e`, under the accompanying
+[BSD-3-Clause license](third-party/source-snapshots/lis2hh12-pid/LICENSE).
+Source/header notices identify copyright 2021 STMicroelectronics; the upstream
+license identifies 2019 STMicroelectronics. Both are retained. Line endings
+alone were normalized; the provenance manifest records upstream and snapshot
+hashes. This source is not covered by this project's Apache license.
+
+`development/motion_sensor.c`, `development/motion_sensor.h`,
+`development/verify_motion_transport.py`, `tests/motion_sensor_harness.c`, and
+`tests/test_motion_sensor.py` are independent Apache-2.0 integration and
+verification code. They contain no extracted vendor instructions, private
+recordings or decompiler output. See [motion lifecycle](development/motion-lifecycle.md)
+for upstream attribution, original-code comparisons and verification limits.
+
 ## Recording-event reconstruction
 
 `development/algo_events.c`, `development/algo_events.h`,

@@ -247,6 +247,11 @@ The [motion reconstruction](motion-findings.md) now documents the LIS2HH12
 count-to-recorder conversion, native 12-byte float file rows, nominal 50 Hz
 cadence and zero-placeholder ambiguity. Its independent C decoder matches the
 original ARM conversion; the new file-based motion monitor does not open this bus.
+The [source-built motion lifecycle](motion-lifecycle.md) now integrates a pinned
+ST driver with explicit profiles, fresh-data checks and verified register
+power-down. Its original-code verifier checks the startup and sample-read
+paths separately from the new implementation. It does not replace the active
+sensor manager or establish concurrent ownership.
 
 The [sensor transport and optical reconstruction](sensor-transport.md) now
 provides checked register I/O and an optical decoder matching the original ARM

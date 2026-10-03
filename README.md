@@ -12,6 +12,8 @@
 > and [bounded optical FIFO acquisition](development/optical-fifo.md) provide
 > source components for further hardware integrations, now with an
 > [explicit sensor lifecycle](development/optical-lifecycle.md).
+> A [source-built accelerometer interface](development/motion-lifecycle.md)
+> now adds selectable rates/ranges using ST's public driver.
 > Kernel config and symbols are recovered; the full
 > vendor application source is still unavailable. Existing operational records
 > document later root recovery, while this branch's new tests are offline.
