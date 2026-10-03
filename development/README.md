@@ -37,8 +37,10 @@ for sample widths, descriptor bounds, context-failure cleanup and previous-drive
 controls. [SAI parameter setup](sai-parameters.md) now checks register errors
 and exact master-clock ownership, with 362 compiled cases.
 [PCM submission/control](pcm-trigger.md) adds 69 checks for actual virtual DMA
-submission, SDMA issue and error returns. Actual DMA sample transfer, coordinated
-termination, ALSA rollback, SAI trigger/IRQ handling, reconfiguration without an
+submission, SDMA issue and error returns. [DMA retirement](pcm-lifetime.md) adds
+37 checks for callback drain, deferred release and PCM buffer/runtime lifetime.
+Actual DMA sample transfer, physical stop timing, ALSA rollback, SAI trigger/IRQ
+handling, reconfiguration without an
 explicit free, power management and physical audio tests remain. The [earlier stream reference](audio-streams.md)
 preserves the original clock-policy limits for comparison.
 

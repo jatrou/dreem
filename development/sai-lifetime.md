@@ -72,7 +72,7 @@ forced-write helper with modeled cache/bus operations and separate lock checks.
 The probe check stops after observing mutex initialization, before device-tree
 and hardware setup; it does not qualify the full SAI probe.
 
-The 69 PCM trigger, 362 SAI parameter, 58 PCM preparation, 305 clock,
+The 37 PCM lifetime, 69 PCM trigger, 362 SAI parameter, 58 PCM preparation, 305 clock,
 50 board-lifetime, 43 identity,
 76 connected EEG, 617 bus-frequency
 and 58 DDR preparation cases also pass on the same kernel. All 44 ADC imports
@@ -92,8 +92,9 @@ from references held by callers; it does not execute runtime-PM internals.
 
 [SAI parameter setup](sai-parameters.md) now propagates register errors and
 tracks exact master-clock ownership. [PCM submission/control](pcm-trigger.md)
-now propagates DMA errors. SAI trigger/IRQ handling, coordinated DMA termination
-and ALSA rollback, reconfiguration without
+now propagates DMA errors. [DMA retirement](pcm-lifetime.md) now checks callback
+and storage lifetime. SAI trigger/IRQ handling, physical DMA stop timing and
+ALSA rollback, reconfiguration without
 an explicit free, actual PCM sample transfer and codec bias/power cleanup remain.
 [Cyclic DMA preparation](pcm-dma.md) accepts packed 20-bit samples and now has
 checked bounds and context-failure cleanup. Fixing

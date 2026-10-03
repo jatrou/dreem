@@ -158,6 +158,16 @@ are by Dreem research contributors (2026). `development/verify_pcm_dma.py` and
 See [PCM cyclic verification](development/pcm-dma.md) and
 [PCM submission/control verification](development/pcm-trigger.md).
 
+`development/apply_pcm_lifetime_overlay.py` and
+`development/kernel/sdma_audio_lifetime.inc` use GPL-2.0-or-later. They adapt
+public Linux/NXP SDMA deferred termination (same SDMA attribution above),
+Analog Devices' core PCM/header (2012) and generic DMAengine PCM platform (2013),
+with callback-drain, synchronization and resource-ownership changes by Dreem
+research contributors (2026). Generated source retains the upstream notices.
+`development/verify_pcm_lifetime.py` is new GPL-2.0-only verification code.
+See [audio DMA lifetime](development/pcm-lifetime.md) for the pinned upstream
+source, timing assumption and verification boundaries.
+
 ## Hardware identity access
 
 `development/apply_hardware_overlay.py` uses GPL-2.0-only and contains small

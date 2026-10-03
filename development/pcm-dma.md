@@ -81,12 +81,12 @@ The context sequences include persistent failure, released allocations, and a
 subsequent modeled successful channel-zero transaction. They do not simulate a
 real controller recovering from a latched timeout. Actual linked instructions
 execute PCM configuration, SDMA channel/context preparation, cyclic descriptor
-construction and release. The verifier compares all 22,975 SDMA, 1,216 core PCM
+construction and release. The verifier compares all 23,827 SDMA, 1,276 core PCM
 and 648 i.MX PCM function/table bytes with the linked kernel, including checked
 relocations and strings. ROM entry addresses come from the public i.MX6UL table;
 the headset's active ROM/firmware contents are not verified by this fixture.
 
-The same kernel passes the 69 PCM trigger, 362 SAI parameter, 58 SAI lifetime,
+The same kernel passes the 37 PCM lifetime, 69 PCM trigger, 362 SAI parameter, 58 SAI lifetime,
 305 clock, 50 board lifetime, 43 identity, 76 connected EEG, 617 bus-frequency
 and 58 DDR preparation cases.
 The original codec source matcher also passes its seven negative controls after
@@ -103,12 +103,12 @@ The enabled object SHA-256 values are:
 
 | Object | SHA-256 |
 | --- | --- |
-| SDMA | `d247bbf10ab2a13f50e9956635c7c3e1326a9ff6b55df84efac09ab0b4672512` |
-| Core PCM | `5b0ddf4f71d6f2963adfd1cf071d390d01ed1b862d1a788bc1fd68df5fad62e8` |
-| i.MX PCM | `2cf3afe0ef7bf08dc876f70ccb3b3df8fd6f6333bee0757edda173bd4f6fbf4a` |
+| SDMA | `b1e4fcdfdbe2c34cd2bb804c95a1e0e647de7dcb95a67216371915cd0b774d95` |
+| Core PCM | `51b552dd2970762a56c835d750a0eb561e68e46f4df86a86df478f50557ce3f3` |
+| i.MX PCM | `e734b1a28a6cf64c93ceb966298a1dfade6170181203d4938e5be6767d905df3` |
 
 [Board integration](audio-lifetime.md) owns the kernel hash. Private manifests
-pin all 36 build-source inputs, 12 artifacts, verifier sources and reports.
+pin all 38 build-source inputs, 13 artifacts, verifier sources and reports.
 
 ## Remaining boundaries
 
@@ -118,7 +118,8 @@ fallback. The checks do not execute the ROM transfer script, submit DMA, deliver
 sample payloads, schedule completion IRQs, or qualify residue/pause behavior.
 [PCM submission/control](pcm-trigger.md) separately executes actual virtual DMA
 submission and SDMA issue/pause/resume instructions with modeled hardware.
+[DMA retirement](pcm-lifetime.md) separately checks callback and storage lifetime.
 [SAI parameter errors](sai-parameters.md) also have separate checks. SAI trigger/IRQ
-handling, coordinated DMA termination and ALSA rollback, reconfiguration without
+handling, physical DMA stop timing and ALSA rollback, reconfiguration without
 an explicit free, codec bias/power transitions, physical clocks,
 analogue output and recording fidelity remain unfinished. Nothing was flashed.

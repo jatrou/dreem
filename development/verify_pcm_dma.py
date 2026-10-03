@@ -262,9 +262,25 @@ def main():
                                       {k: kernel / v for k, v in OBJECTS.items()}, board)
     cases = verify(image, board)
     old = args.previous_build / 'kernel'
+    # SDMA's channel array changes the engine layout when fields are added.
+    # Negative controls must use their own DWARF, not the rebuilt provider's
+    # offsets. Older PCM objects lack debug info; unchanged PCM-only layouts
+    # fall back to the current header definitions.
+    old_board = Module(old / 'sound/soc/fsl/imx-wm8960.o')
+    for name in ['sound/soc/codecs/wm8960.o', 'sound/soc/fsl/fsl_sai.o',
+                 'drivers/base/regmap/regmap.o', *OBJECTS.values()]:
+        raw = (old / name).read_bytes()
+        if ELFFile(io.BytesIO(raw)).has_dwarf_info():
+            obj = Module(old / name)
+            old_board.members.update(obj.members)
+            old_board.sizes.update(obj.sizes)
+    for name, members in board.members.items():
+        if name not in old_board.members:
+            old_board.members[name] = members
+            old_board.sizes[name] = board.sizes[name]
     previous, old_comparisons = load_objects(old / 'vmlinux', old / 'sound/soc/fsl/imx-wm8960.o',
-                                             {k: old / v for k, v in OBJECTS.items()}, board)
-    m = PcmMachine(previous, board)
+                                             {k: old / v for k, v in OBJECTS.items()}, old_board)
+    m = PcmMachine(previous, old_board)
     m.prepare_config()
     try:
         m.cyclic(640, 384)
@@ -272,12 +288,12 @@ def main():
         require('descriptor allocation overrun' in str(error), 'wrong original failure: ' + str(error))
     else:
         raise ValueError('original descriptor overrun not reproduced')
-    m = PcmMachine(previous, board, width=20, channels=1)
+    m = PcmMachine(previous, old_board, width=20, channels=1)
     m.prepare_config()
     require(m.field('snd_pcm_hardware', previous.symbols['imx_pcm_hardware'], 'period_bytes_max') == 65535 and
             m.cyclic(131070, 65535) == 0, 'original advertised-but-rejected period not reproduced')
     negative = ['original cyclic descriptor array overrun', 'original PCM advertises a period SDMA rejects']
-    m = PcmMachine(previous, board, context_error=-110)
+    m = PcmMachine(previous, old_board, context_error=-110)
     require(m.call('imx_pcm_dma_prepare_slave_config', SUB, PARAMS, CONFIG) == 0 and
             m.call('sdma_config', m.chan, CONFIG) == (-110 & 0xffffffff) and
             m.field('sdma_channel', CHANNEL, 'context_loaded', size=1) == 1,

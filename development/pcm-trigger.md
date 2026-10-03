@@ -62,14 +62,15 @@ Verified offline on October 3, 2026 (America/New_York): **69 cases** pass:
   The failed-submit fixture does not enqueue a descriptor, so it does not claim
   that this old issue-pending call starts a physical transfer.
 
-Whole-object relocation/string comparisons cover 22,975 SDMA, 1,216 core PCM,
+Whole-object relocation/string comparisons cover 23,827 SDMA, 1,276 core PCM,
 648 i.MX PCM and 744 virtual DMA function/table bytes in the linked kernel.
 Allocation, MMIO, channel-zero transactions and injected control errors remain
 models. Successful submission uses the actual virtual DMA and SDMA instructions;
 real pause/resume checks cover driver state and writes, not hardware quiescence.
 No ROM transfer script, sample payload, completion IRQ or scheduler is executed.
 
-All ten previous verification reports also pass against their stated inputs;
+The separate [PCM lifetime verification](pcm-lifetime.md) now passes 37 cases.
+All ten earlier verification reports also pass against their stated inputs;
 the original codec reference remains a separate comparison against stock.
 The same-path disabled comparison produces byte-identical core and i.MX PCM
 objects with and without this submission/control overlay, retaining the EEG
@@ -79,7 +80,7 @@ option. The disposable source was restored after that comparison.
 [board integration](audio-lifetime.md) owns the kernel hash. The virtual DMA
 object SHA-256 is
 `e381fc7a08535e95bec68aada9a63b9859e8e99a1d6d7b9a6d96d0b680cd4b71`.
-Private manifests bind 36 build-source inputs, 12 artifacts and eleven reports.
+Private manifests bind 38 build-source inputs, 13 artifacts and twelve reports.
 
 ## Unresolved trigger and termination behavior
 
@@ -97,14 +98,13 @@ Consequently, this change does not guarantee that every failure reaches userspac
 or that all partially started components are stopped. Those source paths were
 inspected, not executed by this verifier.
 
-The inherited SDMA termination implementation frees descriptor storage before
-calling `sdma_disable_channel`. That helper only writes the channel's stop bit.
-The i.MX6ULL reference manual, section 46.8.3, describes STOP_STAT reads as host
-enable bits; they do not establish completion of an in-flight DMA access.
-Neither reordering that write alone nor polling those bits proves it is safe
-to release storage. Coordinated stop, descriptor/buffer lifetime and recovery
-after an uncertain stop require further work. The real termination routine is
-not qualified by these tests; termination callbacks are modeled.
+The old SDMA termination implementation freed descriptor storage before its
+stop request. The later [DMA retirement repair](pcm-lifetime.md) now withdraws
+callbacks, drains tasklets and defers release through the upstream settling
+interval, with process-context synchronization before PCM buffer reuse/free.
+These trigger tests still model termination; the lifetime verifier executes it
+separately. Physical DMA completion and recovery from a wedged peripheral remain
+unqualified. STOP_STAT host-enable bits alone do not prove transfer completion.
 
 SAI trigger/IRQ handling, full ALSA rollback, reconfiguration without an explicit
 free, power management, physical clocks, playback and recording remain

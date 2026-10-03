@@ -10,8 +10,8 @@ the original defects are acceptable or that physical audio is qualified.
 `build_sdma_kernel.py --wm8960-board --hardware-version` selects
 `CONFIG_DREEM_WM8960=y`, selecting the board, repaired codec, explicit SAI slots,
 checked forced-write helper, [SAI parameter ownership](sai-parameters.md),
-[PCM cyclic-path repairs](pcm-dma.md) and [submission/control checks](pcm-trigger.md)
-together.
+[PCM cyclic-path repairs](pcm-dma.md), [submission/control checks](pcm-trigger.md)
+and [DMA retirement](pcm-lifetime.md) together.
 The option defaults to disabled and requires built-in
 `SND_SOC_IMX_WM8960` and the checked hardware-identity API. When selected, this
 board driver is active at probe; unlike the experimental SDMA and bus-frequency
@@ -104,14 +104,15 @@ object is byte-identical to the NXP baseline,
 SHA-256 `c77b315cd7089622dbb916d55bf2c5a36f16a42c555a836f3d469423d4596c50`.
 
 The enabled kernel SHA-256 is
-`af4174cae00d02adf6c1aba8174207b0fd74540782ecce2c48c61e328faccf18`;
+`4ca480287af0f5132fb6b3d1b27eb51d9dfeae687bcde0cd72b5959ee91ca21a`;
 the board object SHA-256 is
-`fd32a3e810870abe69a8cf5b7ab1c7ec89d2d1c453b186a6f0b78eb0ae460c4c`.
+`3916f93e09eb9efc160d24ece8c745aa680da8e41a2c18229aece79a31f3bf2f`.
 Private build/verification manifests pin the exact sources, inputs and artifacts.
 This build also includes the [connected codec/SAI clock and retry repairs](audio-clocking.md),
 the [SAI startup/close repairs](sai-lifetime.md),
 [SAI parameter ownership](sai-parameters.md), and
-[PCM cyclic-path repairs](pcm-dma.md) and [submission/control checks](pcm-trigger.md),
+[PCM cyclic-path repairs](pcm-dma.md), [submission/control checks](pcm-trigger.md)
+and [DMA retirement](pcm-lifetime.md),
 whose verification is recorded separately.
 
 ## Remaining work
@@ -121,8 +122,9 @@ The codec clock and failure-state repairs are covered by the linked clock
 verifier; SAI startup/shutdown now has checked rollback and connected tests.
 PCM configuration and descriptor preparation now have connected checks.
 SAI parameter writes and clock ownership now have separate checks.
-[PCM submission/control](pcm-trigger.md) now has connected checks. SAI trigger/IRQ
-handling, coordinated DMA termination and ALSA rollback, reconfiguration without
+[PCM submission/control](pcm-trigger.md) and [DMA retirement](pcm-lifetime.md)
+now have connected checks. SAI trigger/IRQ handling, physical DMA stop timing,
+ALSA rollback, reconfiguration without
 an explicit free, actual PCM sample transfer, physical SAI/codec interaction,
 power management, independent codec/controller unbind, audible output and
 recording fidelity remain to be qualified. The old ASoC core does not make

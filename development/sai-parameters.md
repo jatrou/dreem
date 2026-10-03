@@ -67,7 +67,8 @@ The trigger path is a separate unresolved boundary: the pinned ASoC routine
 invokes the DMA platform before the CPU DAI. Propagating a CPU trigger error
 alone would not establish that previously started DMA was stopped. The later
 [PCM submission/control repair](pcm-trigger.md) checks DMA errors,
-but SAI trigger, ALSA rollback and coordinated DMA termination remain unresolved.
+and [DMA retirement](pcm-lifetime.md) now orders deferred cleanup. SAI trigger,
+ALSA rollback and physical DMA stop timing remain unresolved.
 
 ## Build and verification
 
@@ -92,7 +93,7 @@ ignored parameter writes, stale DSP mode and mode-dependent clock leakage.
 Verified offline on October 3, 2026 (America/New_York): **362 cases** pass,
 including three previous-driver controls. Full object comparisons cover all
 7,076 emitted SAI function/table/registration bytes and the linked codec. The
-69 PCM trigger, 58 SAI lifetime, 305 clock, 58 PCM preparation, 50 board lifetime,
+37 PCM lifetime, 69 PCM trigger, 58 SAI lifetime, 305 clock, 58 PCM preparation, 50 board lifetime,
 43 identity, 76 connected EEG, 617 bus-frequency and 58 DDR preparation cases
 also pass on this kernel.
 The original codec source matcher retains all seven negative controls, and all
@@ -101,8 +102,8 @@ The original codec source matcher retains all seven negative controls, and all
 At the parameter milestone, with the research audio option disabled, complete
 SAI and board objects were byte-identical to the preceding source controls at
 the same path/configuration and matched the recorded NXP baseline hashes. Disposable source was
-restored after the comparison. Current private manifests bind 36 source inputs,
-12 build artifacts and eleven reports. [Board integration](audio-lifetime.md) owns the
+restored after the comparison. Current private manifests bind 38 source inputs,
+13 build artifacts and twelve reports. [Board integration](audio-lifetime.md) owns the
 kernel/board hashes; [clock verification](audio-clocking.md) owns the
 codec/SAI/regmap hashes.
 
