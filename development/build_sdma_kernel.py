@@ -66,7 +66,7 @@ def build(source, baseline, stock, output, compiler, jobs, busfreq=False, hardwa
                    here / "kernel/wm8960_streams.inc", here / "apply_wm8960_codec_overlay.py",
                    here / "build_wm8960_reference.py", here / "apply_sai_audio_overlay.py",
                    here / "kernel/wm8960_clocking.inc", here / "kernel/wm8960_pll.inc",
-                   here / "kernel/regmap_force_dreem.inc"]
+                   here / "kernel/regmap_force_dreem.inc", here / "kernel/sai_lifetime.inc"]
     source_hashes = {str(p.relative_to(here)): sha(p) for p in inputs}
     output.mkdir(mode=0o700)
     tree, kernel, module = (output / name for name in ("source", "kernel", "module"))

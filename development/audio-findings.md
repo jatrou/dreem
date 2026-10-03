@@ -193,6 +193,7 @@ The matching codec was integrated at the [stream-reference milestone](audio-stre
 The active [research clock implementation](audio-clocking.md) now repairs codec
 clock selection, stream failure state, cached-write retries and explicit SAI
 slot widths, with connected ARM execution checks. The source-match recipe above
-remains unchanged. CPU-DAI error handling, PCM DMA packing, power management,
+remains unchanged. [SAI startup/close](sai-lifetime.md) now repairs resource
+rollback. Parameter/trigger error handling, PCM DMA packing, power management,
 physical playback and recording fidelity remain to be qualified. Nothing was
 installed or flashed.

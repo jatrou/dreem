@@ -113,7 +113,7 @@ duplex isolation, sixteen independent PLL-factor checks including odd inputs,
 three rounding boundaries, five invalid PLL pairs, explicit/default SAI slots,
 five rate-constraint/registration checks and three original-driver negative controls.
 
-The verifier compares 17,340 codec bytes and 6,388 SAI bytes against their linked
+The verifier compares 17,340 codec bytes and 6,644 SAI bytes against their linked
 kernel contents with relocation/string validation. It separately verifies and
 executes the 140-byte forced-write helper. Negative controls reproduce the old
 codec's valid-PLL rejection and failed-parameter active flag, and the old SAI's
@@ -130,13 +130,15 @@ NXP control compiled at the same source path; its warning strings embed
 
 The [board integration record](audio-lifetime.md) owns the kernel and board
 hashes. The enabled codec SHA-256 is
-`75f79e9e1dae0f0af835d18b73f0001b309bccf45d94b78ee402e0bfef3acf6e`;
-SAI is `d63c5c09df894156b2a2f9ff61d974b26dba24e7c906ca441e5fbc5532268fc6`;
-regmap is `71e21993070a4eba9e57277eb8a2d98378005f529d05dc548d930a7638cbaaa4`.
+`b439217d4322464975034ea50a42777c1b67067fda7cd1f6617ba8c1f1cb839d`;
+SAI is `a333e1782cd66f19e26d7d41235a3aa09a38dc8959c406d6ec60b9aa8e27662b`;
+regmap is `d889ec856acd62fe12fda9043a2ad9ab6b0370538d7307836a23b844e3a8c1a8`.
 Private manifests pin the source inputs, artifacts and verifier dependencies.
 
-ALSA negotiation/unwind internals, PCM DMA packing and transfer, SAI startup and
-register-I/O cleanup, power management, concurrent scheduling, physical clock
+[SAI startup and shutdown](sai-lifetime.md) now have separate resource rollback
+and connected callback tests on this kernel. ALSA negotiation/unwind internals,
+PCM DMA packing and transfer, SAI parameter/trigger register-error handling,
+power management, concurrent scheduling, physical clock
 timing, analogue output and recording fidelity remain unqualified. In particular,
 the packed 20-bit PCM format needs DMA-path work: the default PCM conversion
 requests a three-byte bus width, which the public SDMA descriptor preparation

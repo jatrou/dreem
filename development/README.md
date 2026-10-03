@@ -30,7 +30,9 @@ startup, jack publication, stale-handle rejection and cleanup into the kernel,
 with 50 compiled ARM scenarios. The [codec/SAI clock and retry repairs](audio-clocking.md)
 now configure all nine advertised rates and four widths in connected callback
 tests, with 305 scenarios covering clock arithmetic, setup failures, duplex
-isolation and cached-register retries. PCM DMA, power management, CPU-DAI cleanup
+isolation and cached-register retries. The [SAI startup repair](sai-lifetime.md)
+adds 58 compiled checks for resource rollback, retry, duplex isolation and
+connected startup/close. PCM DMA, parameter/trigger errors, power management
 and physical audio tests remain. The [earlier stream reference](audio-streams.md)
 preserves the original clock-policy limits for comparison.
 

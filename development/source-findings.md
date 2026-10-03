@@ -46,8 +46,10 @@ The source references are not yet a deployable audio integration. A separate
 with repaired jack publication and cleanup, using the
 [checked identity read API](hardware-identity.md). The [codec/SAI clock and retry
 repairs](audio-clocking.md) now configure the advertised rates and widths in
-connected callback tests. PCM DMA, power management, CPU-DAI cleanup and physical
-qualification remain; the unchanged matched codec is retained as a reference.
+connected callback tests. [SAI startup and shutdown](sai-lifetime.md) now balance
+resources after failures. PCM DMA, parameter/trigger errors, power management
+and physical qualification remain; the unchanged matched codec is retained as
+a reference.
 
 The root filesystem has no matching complete source package. We still lack
 the original `nano_core`, Nerves, custom board-driver source, Buildroot board

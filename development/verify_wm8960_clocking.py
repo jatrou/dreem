@@ -36,8 +36,12 @@ def linked_object(module):
     table = list(module.elf.get_section_by_name('.symtab').iter_symbols())
     functions = {s.name for s in table if s['st_info']['type'] == 'STT_FUNC'}
     anchors = {s.name for s in table if s['st_info']['type'] in ('STT_FUNC', 'STT_OBJECT')}
+    # With lockdep disabled, mutex_init still takes the address of an empty
+    # lock-class key in zero-sized BSS. Its relocation needs a checked base.
     sections = {n: None for n in ('.text', '.init.text', '.exit.text', '.rodata', '.data', '.bss', '.initcall6.init')
-                if module.elf.get_section_by_name(n)['sh_size']}
+                if module.elf.get_section_by_name(n)['sh_size'] or
+                any(s['st_shndx'] == module.elf.get_section_index(n) and
+                    s['st_info']['type'] == 'STT_OBJECT' for s in table)}
     return Object(module.binary, functions=functions, sections=sections, anchors=anchors)
 
 

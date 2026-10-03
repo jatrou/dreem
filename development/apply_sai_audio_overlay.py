@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""Honor explicit receive-clock slot widths in the experimental audio profile.
+"""Repair SAI slots and stream startup in the experimental audio profile.
 
 Adapts public Freescale/NXP fsl_sai.c/h. With CONFIG_DREEM_WM8960 disabled,
 both source files preprocess to the original implementation.
 """
 import hashlib
+from pathlib import Path
 
 HASHES = {'fsl_sai.c': 'e6bec56e8fc2e61252244edda6288e1c152acd77798396723a3871faf2d7c298',
           'fsl_sai.h': '99d8175a138b82016d0a44028162078a7f2ae342b378f50f229feb4d6d24b4a7'}
@@ -37,7 +38,20 @@ def apply(source):
         if code.count(before) != 1:
             raise ValueError('unexpected SAI anchor')
         code = code.replace(before, after)
+    start = code.index('static int fsl_sai_startup(')
+    end = code.index('static const struct snd_soc_dai_ops fsl_sai_pcm_dai_ops', start)
+    code = (code[:start] + '#ifdef CONFIG_DREEM_WM8960\n#include "sai_lifetime.inc"\n#else\n' +
+            code[start:end] + '#endif\n\n' + code[end:])
+    before = '\tsai->pdev = pdev;'
+    if code.count(before) != 1:
+        raise ValueError('unexpected SAI probe anchor')
+    code = code.replace(before, before + '''
+#ifdef CONFIG_DREEM_WM8960
+	mutex_init(&sai->dreem_stream_lock);
+#endif''')
     (folder / 'fsl_sai.c').write_text(code)
+    (folder / 'sai_lifetime.inc').write_bytes(
+        (Path(__file__).parent / 'kernel/sai_lifetime.inc').read_bytes())
     code = (folder / 'fsl_sai.h').read_text()
     before = '\tstruct snd_dmaengine_dai_dma_data dma_params_tx;'
     if code.count(before) != 1:
@@ -45,7 +59,13 @@ def apply(source):
     code = code.replace(before, before + '''
 #ifdef CONFIG_DREEM_WM8960
 	bool dreem_explicit_slots;
+	struct mutex dreem_stream_lock;
 #endif''')
+    # The header is also included by the board driver, before its own includes.
+    before = 'struct fsl_sai {'
+    if code.count(before) != 1:
+        raise ValueError('unexpected SAI declaration anchor')
+    code = code.replace(before, '#ifdef CONFIG_DREEM_WM8960\n#include <linux/mutex.h>\n#endif\n\n' + before)
     (folder / 'fsl_sai.h').write_text(code)
     with (folder / 'Makefile').open('a') as stream:
         stream.write('\nifeq ($(CONFIG_DREEM_WM8960),y)\nCFLAGS_fsl_sai.o += -g\nendif\n')

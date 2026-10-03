@@ -135,6 +135,12 @@ and forced-write changes are by Dreem research contributors (2026).
 See [clock and retry repairs](development/audio-clocking.md) for current behavior
 and limits. The original source-match recipe remains unchanged.
 
+`development/kernel/sai_lifetime.inc` uses GPL-2.0-or-later and adapts SAI
+startup/shutdown from the public Freescale driver above, with resource rollback
+and ownership repairs by Dreem research contributors (2026).
+`development/verify_sai_lifetime.py` is new GPL-2.0-only verification code.
+See [SAI lifecycle verification](development/sai-lifetime.md) for its boundaries.
+
 ## Hardware identity access
 
 `development/apply_hardware_overlay.py` uses GPL-2.0-only and contains small
